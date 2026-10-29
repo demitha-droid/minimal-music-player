@@ -12,7 +12,6 @@ import com.minimal.music.data.model.Song
 import com.minimal.music.data.source.FolderArtworkHelper
 import com.minimal.music.data.source.FolderArtworkResult
 import com.minimal.music.data.source.MediaStoreScanner
-import com.minimal.music.data.source.PreseededTracks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
@@ -72,36 +71,36 @@ class MusicRepository(
     }
 
     suspend fun initializeDatabase() = withContext(Dispatchers.IO) {
-        val count = songDao.getSongCount()
-        if (count == 0) {
-            val preseededEntities = PreseededTracks.tracks.map { SongEntity.fromModel(it) }
-            songDao.insertSongs(preseededEntities)
+        // Purge filler music and stale featured music folders
+        songDao.deleteFillerSongs()
+        addedFolderDao.deleteFolderByPath("FEATURED_MUSIC")
 
-            // Insert initial folder for preseeded tracks
-            addedFolderDao.insertFolder(
-                AddedFolderEntity(
-                    name = "Featured Music",
-                    path = "FEATURED_MUSIC",
-                    songCount = PreseededTracks.tracks.size,
-                    isArtworkConfirmed = true
-                )
-            )
+        // Database deduplication purge: identify and eliminate duplicate songs
+        val allSongsList = songDao.getAllSongsList()
+        val seenSignatures = mutableSetOf<String>()
+        val seenUris = mutableSetOf<String>()
+        val duplicateIds = mutableListOf<Long>()
 
-            // Create initial default playlists
-            val chillVibesId = playlistDao.insertPlaylist(PlaylistEntity(name = "Chill Vibes"))
-            if (chillVibesId > 0) {
-                playlistDao.addSongToPlaylist(PlaylistSongCrossRef(chillVibesId, 1001L))
-                playlistDao.addSongToPlaylist(PlaylistSongCrossRef(chillVibesId, 1003L))
-                playlistDao.addSongToPlaylist(PlaylistSongCrossRef(chillVibesId, 1006L))
-                playlistDao.addSongToPlaylist(PlaylistSongCrossRef(chillVibesId, 1008L))
+        for (song in allSongsList) {
+            val uriLower = song.mediaUri.lowercase()
+            val normTitle = song.title.trim().lowercase()
+            val normArtist = song.artist.trim().lowercase()
+            val durBucket = song.durationMs / 2000L
+            val metaKey = if (normTitle.isNotBlank()) "${normTitle}::${normArtist}::${durBucket}" else null
+
+            val isDuplicate = (song.mediaUri.isNotBlank() && seenUris.contains(uriLower)) ||
+                    (metaKey != null && seenSignatures.contains(metaKey))
+
+            if (isDuplicate) {
+                duplicateIds.add(song.id)
+            } else {
+                if (song.mediaUri.isNotBlank()) seenUris.add(uriLower)
+                metaKey?.let { seenSignatures.add(it) }
             }
+        }
 
-            val lateNightId = playlistDao.insertPlaylist(PlaylistEntity(name = "Night Drive"))
-            if (lateNightId > 0) {
-                playlistDao.addSongToPlaylist(PlaylistSongCrossRef(lateNightId, 1002L))
-                playlistDao.addSongToPlaylist(PlaylistSongCrossRef(lateNightId, 1004L))
-                playlistDao.addSongToPlaylist(PlaylistSongCrossRef(lateNightId, 1007L))
-            }
+        if (duplicateIds.isNotEmpty()) {
+            songDao.deleteSongsByIds(duplicateIds)
         }
 
         // Clean slate migration: clear previously auto-populated folders so only manual folders appear
@@ -111,12 +110,15 @@ class MusicRepository(
             prefs.edit().putBoolean("clean_slate_v1", true).apply()
         }
 
-        // Check for any manually added folders that need artwork resolution
+        // Synchronize accurate song counts and check for artwork resolution
         val allFolders = addedFolderDao.getAllFoldersList()
         for (folderEntity in allFolders) {
+            val model = folderEntity.toModel()
+            val songsInFolder = getSongsListForFolder(model.path, model.name)
+            if (folderEntity.songCount != songsInFolder.size) {
+                addedFolderDao.updateSongCount(folderEntity.id, songsInFolder.size)
+            }
             if (folderEntity.artworkUri.isNullOrBlank()) {
-                val model = folderEntity.toModel()
-                val songsInFolder = getSongsListForFolder(model.path, model.name)
                 resolveAndSaveArtwork(model, songsInFolder, forceWeb = false)
             }
         }
@@ -128,8 +130,24 @@ class MusicRepository(
 
     suspend fun getSongsListForFolder(folderPath: String, folderName: String): List<Song> = withContext(Dispatchers.IO) {
         val all = songDao.getAllSongsList()
-        all.filter {
-            it.folderPath == folderPath || (it.folderName != null && it.folderName == folderName)
+        val targetPath = folderPath.trimEnd('/', '\\')
+        all.filter { song ->
+            val songPath = song.folderPath?.trimEnd('/', '\\')
+            val pathMatch = songPath != null && (
+                songPath.equals(targetPath, ignoreCase = true) ||
+                songPath.startsWith("$targetPath/", ignoreCase = true) ||
+                songPath.startsWith("$targetPath\\", ignoreCase = true)
+            )
+            val nameMatch = !song.folderName.isNullOrBlank() &&
+                song.folderName.equals(folderName, ignoreCase = true) &&
+                (songPath == null || songPath.contains(folderName, ignoreCase = true))
+
+            pathMatch || nameMatch
+        }.distinctBy {
+            val normTitle = it.title.trim().lowercase()
+            val normArtist = it.artist.trim().lowercase()
+            val durBucket = it.durationMs / 2000L
+            "${normTitle}::${normArtist}::${durBucket}"
         }.map { it.toModel() }
     }
 
@@ -171,11 +189,53 @@ class MusicRepository(
         result
     }
 
+    private suspend fun deduplicateAndInsertSongs(newEntities: List<SongEntity>): Int {
+        if (newEntities.isEmpty()) return 0
+        val existingSongs = songDao.getAllSongsList()
+        val existingUris = mutableSetOf<String>()
+        val existingSignatures = mutableSetOf<String>()
+
+        for (s in existingSongs) {
+            if (s.mediaUri.isNotBlank()) {
+                existingUris.add(s.mediaUri.lowercase())
+            }
+            val normTitle = s.title.trim().lowercase()
+            val normArtist = s.artist.trim().lowercase()
+            val durBucket = s.durationMs / 2000L
+            if (normTitle.isNotBlank()) {
+                existingSignatures.add("${normTitle}::${normArtist}::${durBucket}")
+            }
+        }
+
+        val toInsert = mutableListOf<SongEntity>()
+        for (s in newEntities) {
+            val uriLower = s.mediaUri.lowercase()
+            val normTitle = s.title.trim().lowercase()
+            val normArtist = s.artist.trim().lowercase()
+            val durBucket = s.durationMs / 2000L
+            val metaKey = if (normTitle.isNotBlank()) "${normTitle}::${normArtist}::${durBucket}" else null
+
+            val isDuplicate = (s.mediaUri.isNotBlank() && existingUris.contains(uriLower)) ||
+                    (metaKey != null && existingSignatures.contains(metaKey))
+
+            if (!isDuplicate) {
+                toInsert.add(s)
+                if (s.mediaUri.isNotBlank()) existingUris.add(uriLower)
+                metaKey?.let { existingSignatures.add(it) }
+            }
+        }
+
+        if (toInsert.isNotEmpty()) {
+            songDao.insertSongs(toInsert)
+        }
+        return toInsert.size
+    }
+
     suspend fun scanAndSyncDeviceAudio(): Int = withContext(Dispatchers.IO) {
         val deviceSongs = mediaStoreScanner.scanDeviceAudio()
         if (deviceSongs.isNotEmpty()) {
             val entities = deviceSongs.map { SongEntity.fromModel(it) }
-            songDao.insertSongs(entities)
+            deduplicateAndInsertSongs(entities)
         }
         deviceSongs.size
     }
@@ -189,7 +249,7 @@ class MusicRepository(
     suspend fun addCustomSongs(songs: List<Song>): Int = withContext(Dispatchers.IO) {
         if (songs.isNotEmpty()) {
             val entities = songs.map { SongEntity.fromModel(it) }
-            songDao.insertSongs(entities)
+            deduplicateAndInsertSongs(entities)
         }
         songs.size
     }
@@ -199,9 +259,15 @@ class MusicRepository(
         if (songs.isEmpty()) {
             songs = mediaStoreScanner.scanFolder(folder.absolutePath)
         }
-        if (songs.isNotEmpty()) {
-            val entities = songs.map { SongEntity.fromModel(it) }
-            songDao.insertSongs(entities)
+        val distinctSongs = songs.distinctBy {
+            val normTitle = it.title.trim().lowercase()
+            val normArtist = it.artist.trim().lowercase()
+            val durBucket = it.durationMs / 2000L
+            "${normTitle}::${normArtist}::${durBucket}"
+        }
+        if (distinctSongs.isNotEmpty()) {
+            val entities = distinctSongs.map { SongEntity.fromModel(it) }
+            deduplicateAndInsertSongs(entities)
 
             val existing = addedFolderDao.getFolderByPath(folder.absolutePath)
             val folderId = addedFolderDao.insertFolder(
@@ -209,15 +275,15 @@ class MusicRepository(
                     id = existing?.id ?: 0L,
                     name = folder.name,
                     path = folder.absolutePath,
-                    songCount = songs.size
+                    songCount = distinctSongs.size
                 )
             )
             val inserted = addedFolderDao.getFolderById(if (existing != null) existing.id else folderId)
             if (inserted != null) {
-                resolveAndSaveArtwork(inserted.toModel(), songs, forceWeb = false)
+                resolveAndSaveArtwork(inserted.toModel(), distinctSongs, forceWeb = false)
             }
         }
-        songs.size
+        distinctSongs.size
     }
 
     suspend fun importFromTreeUri(treeUri: android.net.Uri): Int = withContext(Dispatchers.IO) {
@@ -227,9 +293,15 @@ class MusicRepository(
         } catch (_: Exception) {}
 
         val songs = fileExplorerHelper.scanTreeUriRecursive(treeUri)
-        if (songs.isNotEmpty()) {
-            val entities = songs.map { SongEntity.fromModel(it) }
-            songDao.insertSongs(entities)
+        val distinctSongs = songs.distinctBy {
+            val normTitle = it.title.trim().lowercase()
+            val normArtist = it.artist.trim().lowercase()
+            val durBucket = it.durationMs / 2000L
+            "${normTitle}::${normArtist}::${durBucket}"
+        }
+        if (distinctSongs.isNotEmpty()) {
+            val entities = distinctSongs.map { SongEntity.fromModel(it) }
+            deduplicateAndInsertSongs(entities)
 
             val doc = androidx.documentfile.provider.DocumentFile.fromTreeUri(context, treeUri)
             val folderName = doc?.name ?: "Imported Folder"
@@ -240,26 +312,33 @@ class MusicRepository(
                     id = existing?.id ?: 0L,
                     name = folderName,
                     path = path,
-                    songCount = songs.size
+                    songCount = distinctSongs.size
                 )
             )
             val inserted = addedFolderDao.getFolderById(if (existing != null) existing.id else folderId)
             if (inserted != null) {
-                resolveAndSaveArtwork(inserted.toModel(), songs, forceWeb = false)
+                resolveAndSaveArtwork(inserted.toModel(), distinctSongs, forceWeb = false)
             }
         }
-        songs.size
+        distinctSongs.size
     }
 
     suspend fun importFilesFromUris(uris: List<android.net.Uri>): Int = withContext(Dispatchers.IO) {
         val songs = fileExplorerHelper.parseSongsFromUris(uris)
-        if (songs.isNotEmpty()) {
-            val entities = songs.map { SongEntity.fromModel(it) }
-            songDao.insertSongs(entities)
+        val distinctSongs = songs.distinctBy {
+            val normTitle = it.title.trim().lowercase()
+            val normArtist = it.artist.trim().lowercase()
+            val durBucket = it.durationMs / 2000L
+            "${normTitle}::${normArtist}::${durBucket}"
+        }
+        if (distinctSongs.isNotEmpty()) {
+            val entities = distinctSongs.map { SongEntity.fromModel(it) }
+            deduplicateAndInsertSongs(entities)
 
             val path = "SAF_FILES"
             val existing = addedFolderDao.getFolderByPath(path)
-            val newCount = (existing?.songCount ?: 0) + songs.size
+            val currentSongsInFolder = getSongsListForFolder(path, "Imported Files")
+            val newCount = currentSongsInFolder.size
             val folderId = addedFolderDao.insertFolder(
                 AddedFolderEntity(
                     id = existing?.id ?: 0L,
@@ -270,10 +349,10 @@ class MusicRepository(
             )
             val inserted = addedFolderDao.getFolderById(if (existing != null) existing.id else folderId)
             if (inserted != null) {
-                resolveAndSaveArtwork(inserted.toModel(), songs, forceWeb = false)
+                resolveAndSaveArtwork(inserted.toModel(), currentSongsInFolder, forceWeb = false)
             }
         }
-        songs.size
+        distinctSongs.size
     }
 
     suspend fun deleteAddedFolder(folderId: Long, folderPath: String, deleteSongs: Boolean = true) = withContext(Dispatchers.IO) {

@@ -69,4 +69,10 @@ interface SongDao {
 
     @Query("SELECT COUNT(*) FROM songs")
     suspend fun getSongCount(): Int
+
+    @Query("DELETE FROM songs WHERE media_uri LIKE '%soundhelix%' OR folder_path = 'FEATURED_MUSIC' OR id BETWEEN 1001 AND 1010")
+    suspend fun deleteFillerSongs(): Int
+
+    @Query("DELETE FROM songs WHERE id IN (:ids)")
+    suspend fun deleteSongsByIds(ids: List<Long>): Int
 }

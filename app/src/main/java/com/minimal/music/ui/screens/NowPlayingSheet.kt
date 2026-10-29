@@ -102,6 +102,8 @@ fun NowPlayingSheet(
     modifier: Modifier = Modifier
 ) {
     val song = playbackState.currentSong ?: return
+    val favorites by viewModel.favorites.collectAsState()
+    val isFavorite = favorites.any { it.id == song.id } || song.isFavorite
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     var isUserSeeking by remember { mutableStateOf(false) }
@@ -170,11 +172,11 @@ fun NowPlayingSheet(
                     )
                 )
 
-                IconButton(onClick = { viewModel.toggleFavorite(song) }) {
+                IconButton(onClick = { viewModel.toggleFavorite(song.copy(isFavorite = isFavorite)) }) {
                     Icon(
-                        imageVector = if (song.isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = "Favorite",
-                        tint = if (song.isFavorite) HeartActive else TextMuted,
+                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                        tint = if (isFavorite) HeartActive else TextMuted,
                         modifier = Modifier.size(22.dp)
                     )
                 }

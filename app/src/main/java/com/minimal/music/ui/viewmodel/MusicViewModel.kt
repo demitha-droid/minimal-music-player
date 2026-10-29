@@ -233,15 +233,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val pathMatch = songPath != null && (
                 songPath.equals(targetPath, ignoreCase = true) ||
                 songPath.startsWith("$targetPath/", ignoreCase = true) ||
-                songPath.startsWith("$targetPath\\", ignoreCase = true) ||
-                targetPath.startsWith("$songPath/", ignoreCase = true) ||
-                targetPath.startsWith("$songPath\\", ignoreCase = true)
+                songPath.startsWith("$targetPath\\", ignoreCase = true)
             )
             val nameMatch = !song.folderName.isNullOrBlank() &&
-                song.folderName.equals(folder.name, ignoreCase = true)
-            val uriMatch = song.mediaUri.contains(folder.name, ignoreCase = true)
+                song.folderName.equals(folder.name, ignoreCase = true) &&
+                (songPath == null || songPath.contains(folder.name, ignoreCase = true))
 
-            pathMatch || nameMatch || uriMatch
+            pathMatch || nameMatch
+        }.distinctBy {
+            val normTitle = it.title.trim().lowercase()
+            val normArtist = it.artist.trim().lowercase()
+            val durBucket = it.durationMs / 2000L
+            "${normTitle}::${normArtist}::${durBucket}"
         }
         if (folderSongs.isNotEmpty()) {
             if (shuffle) {
@@ -341,6 +344,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun toggleFavorite(song: Song) {
+        val newFavorite = !song.isFavorite
+        playbackManager.updateSongFavorite(song.id, newFavorite)
         viewModelScope.launch {
             repository.toggleFavorite(song.id, song.isFavorite)
         }

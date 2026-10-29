@@ -116,9 +116,12 @@ fun DiscoverScreen(
         item {
             HeroCard(
                 songs = mostPopular,
+                hasSongs = allSongs.isNotEmpty(),
                 onPlayAll = {
                     if (mostPopular.isNotEmpty()) {
                         viewModel.playQueue(mostPopular, 0)
+                    } else if (allSongs.isNotEmpty()) {
+                        viewModel.playQueue(allSongs, 0)
                     }
                 },
                 onShuffle = {
@@ -159,19 +162,35 @@ fun DiscoverScreen(
                     )
                 }
 
-                // Horizontal Carousel of Popular Songs
-                LazyRow(
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
-                    contentPadding = PaddingValues(horizontal = 2.dp)
-                ) {
-                    itemsIndexed(mostPopular.take(10)) { index, song ->
-                        PopularSongCard(
-                            rank = index + 1,
-                            song = song,
-                            isCurrentSong = currentSongId == song.id,
-                            isPlaying = isPlaying,
-                            onClick = { viewModel.playSong(song, mostPopular) }
+                if (mostPopular.isEmpty()) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(SurfaceDark)
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "Add folders in Folders tab to discover music",
+                            style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
                         )
+                    }
+                } else {
+                    // Horizontal Carousel of Popular Songs
+                    LazyRow(
+                        horizontalArrangement = Arrangement.spacedBy(14.dp),
+                        contentPadding = PaddingValues(horizontal = 2.dp)
+                    ) {
+                        itemsIndexed(mostPopular.take(10)) { index, song ->
+                            PopularSongCard(
+                                rank = index + 1,
+                                song = song,
+                                isCurrentSong = currentSongId == song.id,
+                                isPlaying = isPlaying,
+                                onClick = { viewModel.playSong(song, mostPopular) }
+                            )
+                        }
                     }
                 }
             }
@@ -239,6 +258,7 @@ fun DiscoverScreen(
 @Composable
 private fun HeroCard(
     songs: List<Song>,
+    hasSongs: Boolean,
     onPlayAll: () -> Unit,
     onShuffle: () -> Unit,
     modifier: Modifier = Modifier
@@ -259,7 +279,7 @@ private fun HeroCard(
             ) {
                 Column {
                     Text(
-                        text = "VIBE OF THE DAY",
+                        text = if (hasSongs) "VIBE OF THE DAY" else "MUSIC LIBRARY",
                         style = MaterialTheme.typography.bodySmall.copy(
                             color = TextSecondary,
                             letterSpacing = 1.2.sp,
@@ -267,59 +287,68 @@ private fun HeroCard(
                         )
                     )
                     Text(
-                        text = "Curated & Local Hits",
+                        text = if (hasSongs) "Your Local Collection" else "No Songs Added Yet",
                         style = MaterialTheme.typography.headlineMedium.copy(fontSize = 20.sp)
                     )
                 }
 
-                Box(
-                    modifier = Modifier
-                        .size(44.dp)
-                        .clip(CircleShape)
-                        .background(TextPrimary)
-                        .clickable { onPlayAll() },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = "Play All",
-                        tint = BgDark,
-                        modifier = Modifier.size(26.dp)
-                    )
+                if (hasSongs) {
+                    Box(
+                        modifier = Modifier
+                            .size(44.dp)
+                            .clip(CircleShape)
+                            .background(TextPrimary)
+                            .clickable { onPlayAll() },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = "Play All",
+                            tint = BgDark,
+                            modifier = Modifier.size(26.dp)
+                        )
+                    }
                 }
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Button(
-                    onClick = onPlayAll,
-                    colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = BgDark
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Play Top", color = BgDark, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
-                }
+            if (hasSongs) {
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Button(
+                        onClick = onPlayAll,
+                        colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.PlayArrow,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = BgDark
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "Play All", color = BgDark, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
+                    }
 
-                Button(
-                    onClick = onShuffle,
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceBorder),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Shuffle,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = TextSecondary
-                    )
-                    Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Shuffle", color = TextSecondary, style = MaterialTheme.typography.titleMedium)
+                    Button(
+                        onClick = onShuffle,
+                        colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceBorder),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Shuffle,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp),
+                            tint = TextSecondary
+                        )
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text(text = "Shuffle", color = TextSecondary, style = MaterialTheme.typography.titleMedium)
+                    }
                 }
+            } else {
+                Text(
+                    text = "Add folders from the Folders tab to begin enjoying music offline.",
+                    style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
+                )
             }
         }
     }

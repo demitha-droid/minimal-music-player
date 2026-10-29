@@ -367,17 +367,19 @@ fun SongsScreen(
                     val pathMatch = songPath != null && (
                         songPath.equals(targetPath, ignoreCase = true) ||
                         songPath.startsWith("$targetPath/", ignoreCase = true) ||
-                        songPath.startsWith("$targetPath\\", ignoreCase = true) ||
-                        targetPath.startsWith("$songPath/", ignoreCase = true) ||
-                        targetPath.startsWith("$songPath\\", ignoreCase = true)
+                        songPath.startsWith("$targetPath\\", ignoreCase = true)
                     )
 
                     val nameMatch = !song.folderName.isNullOrBlank() &&
-                        song.folderName.equals(currentFolder.name, ignoreCase = true)
+                        song.folderName.equals(currentFolder.name, ignoreCase = true) &&
+                        (songPath == null || songPath.contains(currentFolder.name, ignoreCase = true))
 
-                    val uriMatch = song.mediaUri.contains(currentFolder.name, ignoreCase = true)
-
-                    pathMatch || nameMatch || uriMatch
+                    pathMatch || nameMatch
+                }.distinctBy {
+                    val normTitle = it.title.trim().lowercase()
+                    val normArtist = it.artist.trim().lowercase()
+                    val durBucket = it.durationMs / 2000L
+                    "${normTitle}::${normArtist}::${durBucket}"
                 }
             }
 

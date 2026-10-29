@@ -333,6 +333,23 @@ class PlaybackManager(
         _playbackState.update { it.copy(isShuffle = newShuffle) }
     }
 
+    fun updateSongFavorite(songId: Long, isFavorite: Boolean) {
+        _playbackState.update { state ->
+            val updatedCurrent = if (state.currentSong?.id == songId) {
+                state.currentSong.copy(isFavorite = isFavorite)
+            } else {
+                state.currentSong
+            }
+            val updatedQueue = state.queue.map {
+                if (it.id == songId) it.copy(isFavorite = isFavorite) else it
+            }
+            state.copy(
+                currentSong = updatedCurrent,
+                queue = updatedQueue
+            )
+        }
+    }
+
     fun toggleRepeatMode() {
         val controller = mediaController ?: return
         val nextMode = when (_playbackState.value.repeatMode) {
