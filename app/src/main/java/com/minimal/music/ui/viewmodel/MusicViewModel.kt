@@ -3,6 +3,7 @@ package com.minimal.music.ui.viewmodel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.minimal.music.data.model.AddedFolder
 import com.minimal.music.data.model.Playlist
 import com.minimal.music.data.model.Song
 import com.minimal.music.data.repository.MusicRepository
@@ -47,11 +48,14 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val playlists: StateFlow<List<Playlist>> = repository.playlists
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val addedFolders: StateFlow<List<com.minimal.music.data.model.AddedFolder>> = repository.addedFolders
+    val addedFolders: StateFlow<List<AddedFolder>> = repository.addedFolders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val _selectedFolderFilter = MutableStateFlow<com.minimal.music.data.model.AddedFolder?>(null)
-    val selectedFolderFilter: StateFlow<com.minimal.music.data.model.AddedFolder?> = _selectedFolderFilter.asStateFlow()
+    private val _selectedFolderFilter = MutableStateFlow<AddedFolder?>(null)
+    val selectedFolderFilter: StateFlow<AddedFolder?> = _selectedFolderFilter.asStateFlow()
+
+    private val _openedFolder = MutableStateFlow<AddedFolder?>(null)
+    val openedFolder: StateFlow<AddedFolder?> = _openedFolder.asStateFlow()
 
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
@@ -145,15 +149,66 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         _searchQuery.value = query
     }
 
-    fun setFolderFilter(folder: com.minimal.music.data.model.AddedFolder?) {
+    fun setFolderFilter(folder: AddedFolder?) {
         _selectedFolderFilter.value = if (_selectedFolderFilter.value?.id == folder?.id && folder != null) {
-            null // toggle off if tapped again
+            null
         } else {
             folder
         }
     }
 
-    fun playFolder(folder: com.minimal.music.data.model.AddedFolder, shuffle: Boolean = false) {
+    fun openFolder(folder: AddedFolder) {
+        _openedFolder.value = folder
+        _selectedFolderFilter.value = folder
+    }
+
+    fun closeFolder() {
+        _openedFolder.value = null
+        _selectedFolderFilter.value = null
+    }
+
+    fun confirmFolderArtwork(folderId: Long, onDone: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            repository.confirmFolderArtwork(folderId)
+            // Refresh opened folder if active
+            if (_openedFolder.value?.id == folderId) {
+                _openedFolder.value = _openedFolder.value?.copy(isArtworkConfirmed = true)
+            }
+            onDone?.invoke()
+        }
+    }
+
+    fun tryAgainFolderArtwork(folder: AddedFolder, onDone: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            val result = repository.cycleFolderArtwork(folder)
+            if (result != null && _openedFolder.value?.id == folder.id) {
+                _openedFolder.value = _openedFolder.value?.copy(
+                    artworkUri = result.artworkUri,
+                    isArtworkConfirmed = false,
+                    candidateIndex = result.candidateIndex
+                )
+            }
+            onDone?.invoke()
+        }
+    }
+
+    fun refreshFolderArtwork(folder: AddedFolder, onDone: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            val songs = repository.getSongsListForFolder(folder.path, folder.name)
+            val result = repository.resolveAndSaveArtwork(folder, songs, forceWeb = true)
+            if (_openedFolder.value?.id == folder.id) {
+                _openedFolder.value = _openedFolder.value?.copy(
+                    artworkUri = result.artworkUri,
+                    isArtworkConfirmed = result.isConfirmed,
+                    candidateUrls = result.candidateUrls,
+                    candidateIndex = result.candidateIndex
+                )
+            }
+            onDone?.invoke()
+        }
+    }
+
+    fun playFolder(folder: AddedFolder, shuffle: Boolean = false) {
         val folderSongs = allSongs.value.filter {
             it.folderPath == folder.path || (it.folderName != null && it.folderName == folder.name)
         }
@@ -167,7 +222,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun removeAddedFolder(
-        folder: com.minimal.music.data.model.AddedFolder,
+        folder: AddedFolder,
         deleteSongs: Boolean = true,
         onFinished: (() -> Unit)? = null
     ) {
@@ -175,6 +230,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             repository.deleteAddedFolder(folder.id, folder.path, deleteSongs)
             if (_selectedFolderFilter.value?.id == folder.id) {
                 _selectedFolderFilter.value = null
+            }
+            if (_openedFolder.value?.id == folder.id) {
+                _openedFolder.value = null
             }
             onFinished?.invoke()
         }

@@ -1,18 +1,20 @@
 package com.minimal.music.ui.components
 
+import android.graphics.BitmapFactory
+import android.net.Uri
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -25,18 +27,24 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -48,6 +56,9 @@ import com.minimal.music.ui.theme.SurfaceElevated
 import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
 import com.minimal.music.ui.theme.TextSecondary
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
 
 @Composable
 fun MinimalArtwork(
@@ -80,6 +91,65 @@ fun MinimalArtwork(
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary.copy(alpha = 0.85f)
             )
+        )
+    }
+}
+
+@Composable
+fun FolderCoverImage(
+    artworkUri: String?,
+    folderName: String,
+    modifier: Modifier = Modifier,
+    size: Dp = 64.dp,
+    shapeRadius: Dp = 12.dp,
+    contentScale: ContentScale = ContentScale.Crop
+) {
+    val context = LocalContext.current
+    var bitmap by remember(artworkUri) { mutableStateOf<ImageBitmap?>(null) }
+
+    LaunchedEffect(artworkUri) {
+        if (!artworkUri.isNullOrBlank()) {
+            withContext(Dispatchers.IO) {
+                try {
+                    val file = File(artworkUri)
+                    if (file.exists() && file.length() > 0) {
+                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
+                        if (bmp != null) {
+                            bitmap = bmp.asImageBitmap()
+                        }
+                    } else if (artworkUri.startsWith("content://")) {
+                        context.contentResolver.openInputStream(Uri.parse(artworkUri))?.use { stream ->
+                            val bmp = BitmapFactory.decodeStream(stream)
+                            if (bmp != null) {
+                                bitmap = bmp.asImageBitmap()
+                            }
+                        }
+                    }
+                } catch (_: Exception) {
+                    bitmap = null
+                }
+            }
+        } else {
+            bitmap = null
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!,
+            contentDescription = "Cover for $folderName",
+            modifier = modifier
+                .size(size)
+                .clip(RoundedCornerShape(shapeRadius))
+                .border(1.dp, SurfaceBorder, RoundedCornerShape(shapeRadius)),
+            contentScale = contentScale
+        )
+    } else {
+        MinimalArtwork(
+            title = folderName,
+            size = size,
+            shapeRadius = shapeRadius,
+            modifier = modifier
         )
     }
 }
@@ -153,7 +223,7 @@ fun MinimalSearchBar(
     query: String,
     onQueryChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    placeholderText: String = "Search songs, artists..."
+    placeholderText: String = "Search folders or songs..."
 ) {
     Box(
         modifier = modifier

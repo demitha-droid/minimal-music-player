@@ -9,11 +9,12 @@ import com.minimal.music.data.db.SongEntity
 import com.minimal.music.data.model.AddedFolder
 import com.minimal.music.data.model.Playlist
 import com.minimal.music.data.model.Song
+import com.minimal.music.data.source.FolderArtworkHelper
+import com.minimal.music.data.source.FolderArtworkResult
 import com.minimal.music.data.source.MediaStoreScanner
 import com.minimal.music.data.source.PreseededTracks
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -27,6 +28,7 @@ class MusicRepository(
     private val addedFolderDao = database.addedFolderDao()
     private val mediaStoreScanner = MediaStoreScanner(context)
     val fileExplorerHelper = com.minimal.music.data.source.FileExplorerHelper(context)
+    val folderArtworkHelper = FolderArtworkHelper(context)
 
     val allSongs: Flow<List<Song>> = songDao.getAllSongsFlow()
         .map { entities -> entities.map { it.toModel() } }
@@ -75,7 +77,17 @@ class MusicRepository(
             val preseededEntities = PreseededTracks.tracks.map { SongEntity.fromModel(it) }
             songDao.insertSongs(preseededEntities)
 
-            // Create initial default playlist
+            // Insert initial folder for preseeded tracks
+            addedFolderDao.insertFolder(
+                AddedFolderEntity(
+                    name = "Featured Music",
+                    path = "FEATURED_MUSIC",
+                    songCount = PreseededTracks.tracks.size,
+                    isArtworkConfirmed = true
+                )
+            )
+
+            // Create initial default playlists
             val chillVibesId = playlistDao.insertPlaylist(PlaylistEntity(name = "Chill Vibes"))
             if (chillVibesId > 0) {
                 playlistDao.addSongToPlaylist(PlaylistSongCrossRef(chillVibesId, 1001L))
@@ -108,6 +120,61 @@ class MusicRepository(
                 )
             }
         }
+
+        // Check for any folders that need automatic artwork resolution
+        val allFolders = addedFolderDao.getAllFoldersList()
+        for (folderEntity in allFolders) {
+            if (folderEntity.artworkUri.isNullOrBlank()) {
+                val model = folderEntity.toModel()
+                val songsInFolder = getSongsListForFolder(model.path, model.name)
+                resolveAndSaveArtwork(model, songsInFolder, forceWeb = false)
+            }
+        }
+    }
+
+    suspend fun getSongsListForFolder(folderPath: String, folderName: String): List<Song> = withContext(Dispatchers.IO) {
+        val all = songDao.getAllSongsList()
+        all.filter {
+            it.folderPath == folderPath || (it.folderName != null && it.folderName == folderName)
+        }.map { it.toModel() }
+    }
+
+    suspend fun resolveAndSaveArtwork(
+        folder: AddedFolder,
+        songs: List<Song>,
+        forceWeb: Boolean = false
+    ): FolderArtworkResult = withContext(Dispatchers.IO) {
+        val result = folderArtworkHelper.resolveArtworkForFolder(folder, songs, forceWeb)
+        if (result.artworkUri != null) {
+            addedFolderDao.updateArtwork(
+                id = folder.id,
+                artworkUri = result.artworkUri,
+                isConfirmed = result.isConfirmed,
+                candidateUrls = result.candidateUrls.joinToString("|||"),
+                candidateIndex = result.candidateIndex
+            )
+        }
+        result
+    }
+
+    suspend fun confirmFolderArtwork(folderId: Long): Boolean = withContext(Dispatchers.IO) {
+        val rows = addedFolderDao.confirmArtwork(folderId)
+        rows > 0
+    }
+
+    suspend fun cycleFolderArtwork(folder: AddedFolder): FolderArtworkResult? = withContext(Dispatchers.IO) {
+        val songs = getSongsListForFolder(folder.path, folder.name)
+        val result = folderArtworkHelper.cycleNextCandidate(folder, songs)
+        if (result != null && result.artworkUri != null) {
+            addedFolderDao.updateArtwork(
+                id = folder.id,
+                artworkUri = result.artworkUri,
+                isConfirmed = false,
+                candidateUrls = result.candidateUrls.joinToString("|||"),
+                candidateIndex = result.candidateIndex
+            )
+        }
+        result
     }
 
     suspend fun scanAndSyncDeviceAudio(): Int = withContext(Dispatchers.IO) {
@@ -115,6 +182,31 @@ class MusicRepository(
         if (deviceSongs.isNotEmpty()) {
             val entities = deviceSongs.map { SongEntity.fromModel(it) }
             songDao.insertSongs(entities)
+
+            // Group by folder and register
+            val folderGroups = deviceSongs.groupBy { it.folderPath ?: "" }
+            for ((path, groupSongs) in folderGroups) {
+                if (path.isNotBlank()) {
+                    val folderName = groupSongs.firstOrNull()?.folderName ?: "Music Folder"
+                    val existing = addedFolderDao.getFolderByPath(path)
+                    val folderId = if (existing != null) {
+                        addedFolderDao.updateSongCount(existing.id, existing.songCount + groupSongs.size)
+                        existing.id
+                    } else {
+                        addedFolderDao.insertFolder(
+                            AddedFolderEntity(
+                                name = folderName,
+                                path = path,
+                                songCount = groupSongs.size
+                            )
+                        )
+                    }
+                    val updatedFolder = addedFolderDao.getFolderById(folderId)?.toModel()
+                    if (updatedFolder != null && updatedFolder.artworkUri.isNullOrBlank()) {
+                        resolveAndSaveArtwork(updatedFolder, groupSongs, forceWeb = false)
+                    }
+                }
+            }
         }
         deviceSongs.size
     }
@@ -137,7 +229,7 @@ class MusicRepository(
                     val folderName = groupSongs.firstOrNull()?.folderName ?: "Folder"
                     val existing = addedFolderDao.getFolderByPath(path)
                     val newCount = (existing?.songCount ?: 0) + groupSongs.size
-                    addedFolderDao.insertFolder(
+                    val folderId = addedFolderDao.insertFolder(
                         AddedFolderEntity(
                             id = existing?.id ?: 0L,
                             name = folderName,
@@ -145,6 +237,10 @@ class MusicRepository(
                             songCount = newCount
                         )
                     )
+                    val folderEntity = addedFolderDao.getFolderById(if (existing != null) existing.id else folderId)
+                    if (folderEntity != null && folderEntity.artworkUri.isNullOrBlank()) {
+                        resolveAndSaveArtwork(folderEntity.toModel(), groupSongs, forceWeb = false)
+                    }
                 }
             }
         }
@@ -158,7 +254,7 @@ class MusicRepository(
             songDao.insertSongs(entities)
 
             val existing = addedFolderDao.getFolderByPath(folder.absolutePath)
-            addedFolderDao.insertFolder(
+            val folderId = addedFolderDao.insertFolder(
                 AddedFolderEntity(
                     id = existing?.id ?: 0L,
                     name = folder.name,
@@ -166,6 +262,10 @@ class MusicRepository(
                     songCount = songs.size
                 )
             )
+            val inserted = addedFolderDao.getFolderById(if (existing != null) existing.id else folderId)
+            if (inserted != null) {
+                resolveAndSaveArtwork(inserted.toModel(), songs, forceWeb = false)
+            }
         }
         songs.size
     }
@@ -180,7 +280,7 @@ class MusicRepository(
             val folderName = doc?.name ?: "Imported Folder"
             val path = treeUri.toString()
             val existing = addedFolderDao.getFolderByPath(path)
-            addedFolderDao.insertFolder(
+            val folderId = addedFolderDao.insertFolder(
                 AddedFolderEntity(
                     id = existing?.id ?: 0L,
                     name = folderName,
@@ -188,6 +288,10 @@ class MusicRepository(
                     songCount = songs.size
                 )
             )
+            val inserted = addedFolderDao.getFolderById(if (existing != null) existing.id else folderId)
+            if (inserted != null) {
+                resolveAndSaveArtwork(inserted.toModel(), songs, forceWeb = false)
+            }
         }
         songs.size
     }
@@ -201,7 +305,7 @@ class MusicRepository(
             val path = "SAF_FILES"
             val existing = addedFolderDao.getFolderByPath(path)
             val newCount = (existing?.songCount ?: 0) + songs.size
-            addedFolderDao.insertFolder(
+            val folderId = addedFolderDao.insertFolder(
                 AddedFolderEntity(
                     id = existing?.id ?: 0L,
                     name = "Imported Files",
@@ -209,6 +313,10 @@ class MusicRepository(
                     songCount = newCount
                 )
             )
+            val inserted = addedFolderDao.getFolderById(if (existing != null) existing.id else folderId)
+            if (inserted != null) {
+                resolveAndSaveArtwork(inserted.toModel(), songs, forceWeb = false)
+            }
         }
         songs.size
     }

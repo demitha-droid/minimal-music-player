@@ -1,12 +1,13 @@
 package com.minimal.music.ui.screens
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,18 +22,22 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CreateNewFolder
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Shuffle
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -57,10 +62,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.minimal.music.data.model.AddedFolder
 import com.minimal.music.data.model.Song
+import com.minimal.music.ui.components.FolderCoverImage
 import com.minimal.music.ui.components.MinimalSearchBar
 import com.minimal.music.ui.components.SongListItem
 import com.minimal.music.ui.theme.PrimaryViolet
-import androidx.compose.material.icons.rounded.Add
 import com.minimal.music.ui.theme.SecondaryCyan
 import com.minimal.music.ui.theme.SurfaceBorder
 import com.minimal.music.ui.theme.SurfaceDark
@@ -80,11 +85,15 @@ fun SongsScreen(
 ) {
     val allSongs by viewModel.allSongs.collectAsState()
     val addedFolders by viewModel.addedFolders.collectAsState()
-    val selectedFolderFilter by viewModel.selectedFolderFilter.collectAsState()
+    val openedFolder by viewModel.openedFolder.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val searchResults by viewModel.searchResults.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
     val scope = rememberCoroutineScope()
+
+    // Handle system back gesture when inside a folder
+    BackHandler(enabled = openedFolder != null) {
+        viewModel.closeFolder()
+    }
 
     // SAF folder picker directly from the Songs tab
     val folderPickerLauncher = rememberLauncherForActivityResult(
@@ -99,244 +108,210 @@ fun SongsScreen(
         }
     }
 
-    val displaySongs = when {
-        searchQuery.isNotBlank() -> searchResults
-        selectedFolderFilter != null -> allSongs.filter {
-            it.folderPath == selectedFolderFilter?.path ||
-                (it.folderName != null && it.folderName == selectedFolderFilter?.name)
-        }
-        else -> allSongs
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        // Title and actions header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Songs",
-                    style = MaterialTheme.typography.headlineLarge
-                )
-                Text(
-                    text = if (selectedFolderFilter != null) {
-                        "${displaySongs.size} tracks in folder"
-                    } else {
-                        "${allSongs.size} tracks • folders first"
-                    },
-                    style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
-                )
-            }
+        if (openedFolder == null) {
+            // =========================================================================
+            // ROOT VIEW OF SONGS TAB: STRICTLY FOLDERS ONLY (NO OTHER SONGS)
+            // =========================================================================
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                // Add Folder Shortcut
-                IconButton(
-                    onClick = { folderPickerLauncher.launch(null) },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceElevated)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.CreateNewFolder,
-                        contentDescription = "Add folder to library",
-                        tint = SecondaryCyan,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Rescan device button
-                IconButton(
-                    onClick = {
-                        viewModel.syncDeviceAudio { count ->
-                            scope.launch {
-                                snackbarHostState.showSnackbar("Synced $count tracks from device")
-                            }
-                        }
-                    },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceDark)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Refresh,
-                        contentDescription = "Rescan device files",
-                        tint = TextSecondary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-
-                // Shuffle all / filtered
-                IconButton(
-                    onClick = {
-                        if (displaySongs.isNotEmpty()) {
-                            viewModel.playQueue(displaySongs.shuffled(), 0)
-                        }
-                    },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(PrimaryViolet)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Shuffle,
-                        contentDescription = "Shuffle All",
-                        tint = Color.Black,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Search Bar
-        MinimalSearchBar(
-            query = searchQuery,
-            onQueryChange = { viewModel.onSearchQueryChanged(it) }
-        )
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // ADDED FOLDERS SECTION (FIRST)
-        if (searchQuery.isBlank()) {
+            // Header Row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Folder,
-                        contentDescription = null,
-                        tint = Color(0xFFFFB300),
-                        modifier = Modifier.size(18.dp)
+                Column {
+                    Text(
+                        text = "Folders",
+                        style = MaterialTheme.typography.headlineLarge
                     )
                     Text(
-                        text = "Added Folders",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                        text = "${addedFolders.size} music folders in library",
+                        style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
                     )
-                    if (addedFolders.isNotEmpty()) {
+                }
+
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Add Folder Shortcut
+                    IconButton(
+                        onClick = { folderPickerLauncher.launch(null) },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceElevated)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.CreateNewFolder,
+                            contentDescription = "Add folder to library",
+                            tint = SecondaryCyan,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // Rescan device button
+                    IconButton(
+                        onClick = {
+                            viewModel.syncDeviceAudio { count ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Synced $count tracks from device")
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceDark)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Refresh,
+                            contentDescription = "Rescan device files",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Search Bar for filtering folders
+            MinimalSearchBar(
+                query = searchQuery,
+                onQueryChange = { viewModel.onSearchQueryChanged(it) },
+                placeholderText = "Filter folders..."
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            val filteredFolders = if (searchQuery.isBlank()) {
+                addedFolders
+            } else {
+                addedFolders.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
+            }
+
+            if (addedFolders.isEmpty()) {
+                // Empty state: No folders added yet
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 120.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(16.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 24.dp)
+                    ) {
                         Box(
                             modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF262114))
-                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color(0xFF262114)),
+                            contentAlignment = Alignment.Center
                         ) {
+                            Icon(
+                                imageVector = Icons.Rounded.FolderOpen,
+                                contentDescription = null,
+                                tint = Color(0xFFFFB300),
+                                modifier = Modifier.size(36.dp)
+                            )
+                        }
+
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             Text(
-                                text = "${addedFolders.size}",
+                                text = "No Music Folders",
+                                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Add music folders from your device to organize your songs into clean, dedicated collections.",
                                 style = MaterialTheme.typography.bodySmall.copy(
-                                    color = Color(0xFFFFB300),
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
+                                    color = TextMuted,
+                                    lineHeight = 18.sp
+                                ),
+                                textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                            )
+                        }
+
+                        Button(
+                            onClick = { folderPickerLauncher.launch(null) },
+                            shape = RoundedCornerShape(50),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                            modifier = Modifier.height(44.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Add,
+                                contentDescription = null,
+                                tint = Color.Black,
+                                modifier = Modifier.size(18.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Add Folder from Device",
+                                color = Color.Black,
+                                fontWeight = FontWeight.Bold
                             )
                         }
                     }
                 }
-
-                if (selectedFolderFilter != null) {
-                    Text(
-                        text = "Show All",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = PrimaryViolet,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        modifier = Modifier
-                            .clickable { viewModel.setFolderFilter(null) }
-                            .padding(4.dp)
-                    )
-                } else {
-                    Text(
-                        text = "+ Add",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = SecondaryCyan,
-                            fontWeight = FontWeight.SemiBold
-                        ),
-                        modifier = Modifier
-                            .clickable { folderPickerLauncher.launch(null) }
-                            .padding(4.dp)
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(8.dp))
-
-            if (addedFolders.isEmpty()) {
-                // Sleek banner prompting to add folders
-                Row(
+            } else if (filteredFolders.isEmpty()) {
+                Box(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(SurfaceDark)
-                        .border(1.dp, SurfaceBorder, RoundedCornerShape(12.dp))
-                        .clickable { folderPickerLauncher.launch(null) }
-                        .padding(horizontal = 12.dp, vertical = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        .fillMaxSize()
+                        .padding(bottom = 120.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(34.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(Color(0xFF262114)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.FolderOpen,
-                            contentDescription = null,
-                            tint = Color(0xFFFFB300),
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
-
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "No folders added yet",
-                            style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Medium)
-                        )
-                        Text(
-                            text = "Tap to pick a music folder from storage",
-                            style = MaterialTheme.typography.bodySmall.copy(color = TextMuted, fontSize = 11.sp)
-                        )
-                    }
-
-                    Icon(
-                        imageVector = Icons.Rounded.Add,
-                        contentDescription = "Add folder",
-                        tint = SecondaryCyan,
-                        modifier = Modifier.size(20.dp)
+                    Text(
+                        text = "No folders match '$searchQuery'",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
                     )
                 }
             } else {
-                // Horizontal scrolling list of folder cards
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                // List of folders (strictly folders, no other songs below)
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
-                    addedFolders.forEach { folder ->
-                        val isSelected = selectedFolderFilter?.id == folder.id
-                        AddedFolderCard(
+                    items(
+                        items = filteredFolders,
+                        key = { it.id }
+                    ) { folder ->
+                        FolderOverviewCard(
                             folder = folder,
-                            isSelected = isSelected,
-                            onClick = { viewModel.setFolderFilter(folder) },
+                            onClick = { viewModel.openFolder(folder) },
                             onPlay = { viewModel.playFolder(folder, shuffle = false) },
                             onShuffle = { viewModel.playFolder(folder, shuffle = true) },
+                            onKeepArtwork = {
+                                viewModel.confirmFolderArtwork(folder.id) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Album cover saved for ${folder.name}")
+                                    }
+                                }
+                            },
+                            onTryAgainArtwork = {
+                                viewModel.tryAgainFolderArtwork(folder) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Looking for alternative cover...")
+                                    }
+                                }
+                            },
+                            onRefreshArtwork = {
+                                viewModel.refreshFolderArtwork(folder) {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Searching web for artwork...")
+                                    }
+                                }
+                            },
                             onRemove = {
                                 viewModel.removeAddedFolder(folder, deleteSongs = true) {
                                     scope.launch {
@@ -349,105 +324,178 @@ fun SongsScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(14.dp))
-        }
+        } else {
+            // =========================================================================
+            // FOLDER DETAIL VIEW: DISPLAY ONLY SONGS INSIDE THIS SELECTED FOLDER
+            // =========================================================================
+            val currentFolder = openedFolder!!
+            val folderSongs = allSongs.filter {
+                it.folderPath == currentFolder.path ||
+                    (it.folderName != null && it.folderName == currentFolder.name)
+            }
 
-        // Active filter indicator chip
-        if (selectedFolderFilter != null) {
+            val displayFolderSongs = if (searchQuery.isBlank()) {
+                folderSongs
+            } else {
+                folderSongs.filter {
+                    it.title.contains(searchQuery.trim(), ignoreCase = true) ||
+                        it.artist.contains(searchQuery.trim(), ignoreCase = true)
+                }
+            }
+
+            // Top Bar with Back Button
             Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFF262114))
-                    .border(1.dp, Color(0xFFFFB300).copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Folder,
-                        contentDescription = null,
-                        tint = Color(0xFFFFB300),
-                        modifier = Modifier.size(14.dp)
-                    )
-                    Text(
-                        text = "Viewing: ${selectedFolderFilter?.name} (${displaySongs.size})",
-                        style = MaterialTheme.typography.bodySmall.copy(
-                            color = Color(0xFFFFB300),
-                            fontWeight = FontWeight.SemiBold
+                    IconButton(
+                        onClick = { viewModel.closeFolder() },
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceDark)
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                            contentDescription = "Back to Folders",
+                            tint = TextPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
-                    )
+                    }
+
+                    Column {
+                        Text(
+                            text = currentFolder.name,
+                            style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        Text(
+                            text = "${folderSongs.size} tracks",
+                            style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
+                        )
+                    }
                 }
 
-                IconButton(
-                    onClick = { viewModel.setFolderFilter(null) },
-                    modifier = Modifier.size(22.dp)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    IconButton(
+                        onClick = {
+                            viewModel.refreshFolderArtwork(currentFolder) {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Searching web for artwork...")
+                                }
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.ImageSearch,
+                            contentDescription = "Find web artwork",
+                            tint = SecondaryCyan,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Search Bar inside folder
+            MinimalSearchBar(
+                query = searchQuery,
+                onQueryChange = { viewModel.onSearchQueryChanged(it) },
+                placeholderText = "Search songs in ${currentFolder.name}..."
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Folder Header Card (Album Art + Pill Play/Shuffle Buttons matching folder side, zero overlaps)
+            FolderHeaderBanner(
+                folder = currentFolder,
+                onPlay = { viewModel.playFolder(currentFolder, shuffle = false) },
+                onShuffle = { viewModel.playFolder(currentFolder, shuffle = true) },
+                onKeepArtwork = {
+                    viewModel.confirmFolderArtwork(currentFolder.id) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Album cover saved")
+                        }
+                    }
+                },
+                onTryAgainArtwork = {
+                    viewModel.tryAgainFolderArtwork(currentFolder) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("Trying another album cover...")
+                        }
+                    }
+                }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Songs List strictly for this folder
+            if (displayFolderSongs.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = 120.dp),
+                    contentAlignment = Alignment.Center
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = "Clear filter",
-                        tint = Color(0xFFFFB300),
-                        modifier = Modifier.size(14.dp)
+                    Text(
+                        text = if (searchQuery.isNotBlank()) {
+                            "No songs match '$searchQuery' in this folder"
+                        } else {
+                            "No audio files found in '${currentFolder.name}'"
+                        },
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
                     )
                 }
-            }
-
-            Spacer(modifier = Modifier.height(10.dp))
-        }
-
-        // Songs List
-        if (displaySongs.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(bottom = 120.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = when {
-                        searchQuery.isNotBlank() -> "No songs found for '$searchQuery'"
-                        selectedFolderFilter != null -> "No songs in folder '${selectedFolderFilter?.name}'"
-                        else -> "No songs found"
-                    },
-                    style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
-                verticalArrangement = Arrangement.spacedBy(2.dp)
-            ) {
-                items(
-                    items = displaySongs,
-                    key = { it.id }
-                ) { song ->
-                    SongListItem(
-                        song = song,
-                        isPlaying = playbackState.isPlaying,
-                        isCurrentSong = playbackState.currentSong?.id == song.id,
-                        onSongClick = { viewModel.playSong(song, displaySongs) },
-                        onFavoriteToggle = { viewModel.toggleFavorite(song) },
-                        onAddToPlaylistClick = { onSongSelectedForPlaylist(song) },
-                        showPlayCount = true
-                    )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(top = 2.dp, bottom = 120.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(
+                        items = displayFolderSongs,
+                        key = { it.id }
+                    ) { song ->
+                        SongListItem(
+                            song = song,
+                            isPlaying = playbackState.isPlaying,
+                            isCurrentSong = playbackState.currentSong?.id == song.id,
+                            onSongClick = { viewModel.playSong(song, displayFolderSongs) },
+                            onFavoriteToggle = { viewModel.toggleFavorite(song) },
+                            onAddToPlaylistClick = { onSongSelectedForPlaylist(song) },
+                            showPlayCount = true
+                        )
+                    }
                 }
             }
         }
     }
 }
 
+/**
+ * Folder Card on the Root Songs Tab.
+ * Layout guarantees strictly ZERO overlap between elements:
+ * - Dedicated artwork slot with Keep / Try Again controls if unconfirmed
+ * - Folder title and song count
+ * - Pill-shaped Play and Shuffle buttons matching the folder sides
+ */
 @Composable
-private fun AddedFolderCard(
+private fun FolderOverviewCard(
     folder: AddedFolder,
-    isSelected: Boolean,
     onClick: () -> Unit,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
+    onKeepArtwork: () -> Unit,
+    onTryAgainArtwork: () -> Unit,
+    onRefreshArtwork: () -> Unit,
     onRemove: () -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -455,51 +503,74 @@ private fun AddedFolderCard(
 
     Box(
         modifier = modifier
-            .width(175.dp)
-            .clip(RoundedCornerShape(14.dp))
-            .background(if (isSelected) Color(0xFF241F14) else SurfaceElevated)
-            .border(
-                width = if (isSelected) 1.5.dp else 1.dp,
-                color = if (isSelected) Color(0xFFFFB300) else SurfaceBorder,
-                shape = RoundedCornerShape(14.dp)
-            )
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceElevated)
+            .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
             .clickable { onClick() }
-            .padding(12.dp)
+            .padding(14.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // Top Section: Album Cover Art & Info
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(14.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF262114)),
-                    contentAlignment = Alignment.Center
+                // Square Album Cover (Local, Web Downloaded, or Sleek Generative Fallback)
+                FolderCoverImage(
+                    artworkUri = folder.artworkUri,
+                    folderName = folder.name,
+                    size = 68.dp,
+                    shapeRadius = 12.dp
+                )
+
+                // Info: Folder Title & Track Count
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    Icon(
-                        imageVector = Icons.Rounded.Folder,
-                        contentDescription = null,
-                        tint = Color(0xFFFFB300),
-                        modifier = Modifier.size(18.dp)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Folder,
+                            contentDescription = null,
+                            tint = Color(0xFFFFB300),
+                            modifier = Modifier.size(15.dp)
+                        )
+                        Text(
+                            text = folder.name,
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp
+                            ),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+
+                    Text(
+                        text = "${folder.songCount} tracks",
+                        style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
                     )
                 }
 
+                // 3-dots Menu
                 Box {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(32.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
                             contentDescription = "Folder options",
                             tint = TextMuted,
-                            modifier = Modifier.size(16.dp)
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
@@ -508,17 +579,17 @@ private fun AddedFolderCard(
                         onDismissRequest = { showMenu = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("Play All") },
+                            text = { Text("Open Folder") },
                             onClick = {
                                 showMenu = false
-                                onPlay()
+                                onClick()
                             }
                         )
                         DropdownMenuItem(
-                            text = { Text("Shuffle") },
+                            text = { Text("Search Web Cover") },
                             onClick = {
                                 showMenu = false
-                                onShuffle()
+                                onRefreshArtwork()
                             }
                         )
                         DropdownMenuItem(
@@ -532,60 +603,308 @@ private fun AddedFolderCard(
                 }
             }
 
-            Text(
-                text = folder.name,
-                style = MaterialTheme.typography.titleSmall.copy(
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 13.sp
-                ),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis
-            )
+            // AUTOMATIC WEB ARTWORK CONFIRMATION (Keep / Try Again)
+            // When newly found from internet and unconfirmed, show dedicated Keep & Try Again banner
+            if (!folder.isArtworkConfirmed && folder.artworkUri != null) {
+                ArtworkKeepOrTryAgainBanner(
+                    candidateIndex = folder.candidateIndex,
+                    onKeep = onKeepArtwork,
+                    onTryAgain = onTryAgainArtwork
+                )
+            }
 
+            // PILL-SHAPED PLAY & SHUFFLE BUTTONS MATCHING THE FOLDER SIDE
+            // Clean, non-overlapping side-by-side pill buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Pill Play Button
+                Button(
+                    onClick = onPlay,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = "Play folder",
+                        tint = Color.Black,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Play",
+                        color = Color.Black,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                // Pill Shuffle Button
+                Button(
+                    onClick = onShuffle,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(38.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+                    border = BorderStroke(1.dp, SurfaceBorder),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Shuffle,
+                        contentDescription = "Shuffle folder",
+                        tint = TextSecondary,
+                        modifier = Modifier.size(15.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Shuffle",
+                        color = TextSecondary,
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Top Header Banner inside an Opened Folder.
+ * Displays large album artwork, Keep/Try Again controls if unconfirmed, and pill Play/Shuffle buttons.
+ * Guarantees zero UI overlap.
+ */
+@Composable
+private fun FolderHeaderBanner(
+    folder: AddedFolder,
+    onPlay: () -> Unit,
+    onShuffle: () -> Unit,
+    onKeepArtwork: () -> Unit,
+    onTryAgainArtwork: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(SurfaceElevated)
+            .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "${folder.songCount} tracks",
-                    style = MaterialTheme.typography.bodySmall.copy(
-                        color = if (isSelected) Color(0xFFFFB300) else TextMuted,
-                        fontSize = 11.sp
-                    )
+                // Large Album Art Cover
+                FolderCoverImage(
+                    artworkUri = folder.artworkUri,
+                    folderName = folder.name,
+                    size = 90.dp,
+                    shapeRadius = 14.dp
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    IconButton(
-                        onClick = onShuffle,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceDark)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Shuffle,
-                            contentDescription = "Shuffle folder",
-                            tint = TextSecondary,
-                            modifier = Modifier.size(12.dp)
-                        )
-                    }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text(
+                        text = folder.name,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 17.sp
+                        ),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
 
-                    IconButton(
-                        onClick = onPlay,
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryViolet)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.PlayArrow,
-                            contentDescription = "Play folder",
-                            tint = Color.Black,
-                            modifier = Modifier.size(14.dp)
+                    Text(
+                        text = "${folder.songCount} songs in folder",
+                        style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
+                    )
+
+                    if (folder.artworkUri != null && folder.isArtworkConfirmed) {
+                        Text(
+                            text = "✓ Album Cover Saved",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                color = Color(0xFF34D399),
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         )
                     }
                 }
+            }
+
+            // Keep or Try Again Banner if unconfirmed web art
+            if (!folder.isArtworkConfirmed && folder.artworkUri != null) {
+                ArtworkKeepOrTryAgainBanner(
+                    candidateIndex = folder.candidateIndex,
+                    onKeep = onKeepArtwork,
+                    onTryAgain = onTryAgainArtwork
+                )
+            }
+
+            // Pill-shaped Play All & Shuffle Buttons matching the folder sides
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Play All Button (Pill shape)
+                Button(
+                    onClick = onPlay,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.PlayArrow,
+                        contentDescription = null,
+                        tint = Color.Black,
+                        modifier = Modifier.size(18.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Play All",
+                        color = Color.Black,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                // Shuffle Button (Pill shape)
+                Button(
+                    onClick = onShuffle,
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(42.dp),
+                    shape = RoundedCornerShape(50),
+                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+                    border = BorderStroke(1.dp, SurfaceBorder),
+                    contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Shuffle,
+                        contentDescription = null,
+                        tint = TextPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Shuffle",
+                        color = TextPrimary,
+                        style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Dedicated, non-overlapping banner shown when new album artwork is fetched from the internet.
+ * Features:
+ * - [✓ Keep] pill button: accepts artwork and makes the prompt go away.
+ * - [↻ Try Again] pill button: fetches another candidate image from the web.
+ */
+@Composable
+private fun ArtworkKeepOrTryAgainBanner(
+    candidateIndex: Int,
+    onKeep: () -> Unit,
+    onTryAgain: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .background(Color(0xFF141923))
+            .border(1.dp, SecondaryCyan.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Web Album Art Found",
+                style = MaterialTheme.typography.labelMedium.copy(
+                    color = SecondaryCyan,
+                    fontWeight = FontWeight.Bold
+                )
+            )
+            Text(
+                text = "Preview #${candidateIndex + 1}",
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = TextMuted,
+                    fontSize = 11.sp
+                )
+            )
+        }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            // Keep Button (Pill shaped, green accent)
+            Button(
+                onClick = onKeep,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(34.dp),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B382B)),
+                border = BorderStroke(1.dp, Color(0xFF34D399)),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Check,
+                    contentDescription = null,
+                    tint = Color(0xFF34D399),
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Keep",
+                    color = Color(0xFF34D399),
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                )
+            }
+
+            // Try Again Button (Pill shaped, cyan accent)
+            Button(
+                onClick = onTryAgain,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(34.dp),
+                shape = RoundedCornerShape(50),
+                colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated),
+                border = BorderStroke(1.dp, SurfaceBorder),
+                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Refresh,
+                    contentDescription = null,
+                    tint = SecondaryCyan,
+                    modifier = Modifier.size(14.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Try Again",
+                    color = SecondaryCyan,
+                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium)
+                )
             }
         }
     }

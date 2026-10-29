@@ -14,7 +14,9 @@ object PreseededTracks {
             artworkUri = "linear-gradient:45:#1A1A24:#4A306D",
             isFavorite = true,
             playCount = 42,
-            popularityScore = 98
+            popularityScore = 98,
+            folderName = "Featured Music",
+            folderPath = "FEATURED_MUSIC"
         ),
         Song(
             id = 1002L,
@@ -26,7 +28,9 @@ object PreseededTracks {
             artworkUri = "linear-gradient:45:#182026:#2A4B5E",
             isFavorite = false,
             playCount = 37,
-            popularityScore = 95
+            popularityScore = 95,
+            folderName = "Featured Music",
+            folderPath = "FEATURED_MUSIC"
         ),
         Song(
             id = 1003L,
@@ -38,7 +42,9 @@ object PreseededTracks {
             artworkUri = "linear-gradient:45:#21141E:#5E2442",
             isFavorite = true,
             playCount = 29,
-            popularityScore = 91
+            popularityScore = 91,
+            folderName = "Featured Music",
+            folderPath = "FEATURED_MUSIC"
         ),
         Song(
             id = 1004L,
@@ -50,7 +56,9 @@ object PreseededTracks {
             artworkUri = "linear-gradient:45:#111B24:#1C5870",
             isFavorite = false,
             playCount = 21,
-            popularityScore = 88
+            popularityScore = 88,
+            folderName = "Featured Music",
+            folderPath = "FEATURED_MUSIC"
         ),
         Song(
             id = 1005L,
@@ -62,7 +70,9 @@ object PreseededTracks {
             artworkUri = "linear-gradient:45:#0F1D1A:#1E4B3E",
             isFavorite = false,
             playCount = 18,
-            popularityScore = 84
+            popularityScore = 84,
+            folderName = "Featured Music",
+            folderPath = "FEATURED_MUSIC"
         ),
         Song(
             id = 1006L,
@@ -74,7 +84,9 @@ object PreseededTracks {
             artworkUri = "linear-gradient:45:#261E14:#6B4E26",
             isFavorite = true,
             playCount = 15,
-            popularityScore = 80
+            popularityScore = 80,
+            folderName = "Featured Music",
+            folderPath = "FEATURED_MUSIC"
         ),
         Song(
             id = 1007L,
@@ -86,7 +98,9 @@ object PreseededTracks {
             artworkUri = "linear-gradient:45:#221626:#5A2B6D",
             isFavorite = false,
             playCount = 11,
-            popularityScore = 77
+            popularityScore = 77,
+            folderName = "Featured Music",
+            folderPath = "FEATURED_MUSIC"
         ),
         Song(
             id = 1008L,
@@ -98,7 +112,9 @@ object PreseededTracks {
             artworkUri = "linear-gradient:45:#16191D:#323C47",
             isFavorite = false,
             playCount = 8,
-            popularityScore = 73
+            popularityScore = 73,
+            folderName = "Featured Music",
+            folderPath = "FEATURED_MUSIC"
         )
     )
 }
