@@ -1,0 +1,158 @@
+package com.minimal.music.ui.viewmodel
+
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.minimal.music.data.model.Playlist
+import com.minimal.music.data.model.Song
+import com.minimal.music.data.repository.MusicRepository
+import com.minimal.music.player.PlaybackManager
+import com.minimal.music.player.PlaybackState
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
+
+class MusicViewModel(application: Application) : AndroidViewModel(application) {
+
+    private val repository = MusicRepository(application)
+    val playbackManager = PlaybackManager(
+        context = application,
+        scope = viewModelScope,
+        onSongPlayedCallback = { songId ->
+            repository.recordSongPlayed(songId)
+        }
+    )
+
+    val playbackState: StateFlow<PlaybackState> = playbackManager.playbackState
+
+    val allSongs: StateFlow<List<Song>> = repository.allSongs
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val favorites: StateFlow<List<Song>> = repository.favorites
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val mostPlayed: StateFlow<List<Song>> = repository.mostPlayed
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val mostPopular: StateFlow<List<Song>> = repository.mostPopular
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val playlists: StateFlow<List<Playlist>> = repository.playlists
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val searchResults: StateFlow<List<Song>> = _searchQuery
+        .flatMapLatest { query ->
+            if (query.isBlank()) {
+                flowOf(emptyList())
+            } else {
+                repository.searchSongs(query.trim())
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        viewModelScope.launch {
+            repository.initializeDatabase()
+        }
+    }
+
+    fun onSearchQueryChanged(query: String) {
+        _searchQuery.value = query
+    }
+
+    fun playSong(song: Song, queue: List<Song>? = null) {
+        playbackManager.playSong(song, queue)
+    }
+
+    fun playQueue(queue: List<Song>, startIndex: Int = 0) {
+        playbackManager.playQueue(queue, startIndex)
+    }
+
+    fun togglePlayPause() {
+        playbackManager.togglePlayPause()
+    }
+
+    fun skipNext() {
+        playbackManager.skipNext()
+    }
+
+    fun skipPrevious() {
+        playbackManager.skipPrevious()
+    }
+
+    fun seekTo(positionMs: Long) {
+        playbackManager.seekTo(positionMs)
+    }
+
+    fun toggleShuffle() {
+        playbackManager.toggleShuffle()
+    }
+
+    fun toggleRepeat() {
+        playbackManager.toggleRepeatMode()
+    }
+
+    fun toggleFavorite(song: Song) {
+        viewModelScope.launch {
+            repository.toggleFavorite(song.id, song.isFavorite)
+        }
+    }
+
+    fun createPlaylist(name: String, onCreated: ((Long) -> Unit)? = null) {
+        viewModelScope.launch {
+            val id = repository.createPlaylist(name)
+            onCreated?.invoke(id)
+        }
+    }
+
+    fun renamePlaylist(playlistId: Long, newName: String) {
+        viewModelScope.launch {
+            repository.renamePlaylist(playlistId, newName)
+        }
+    }
+
+    fun deletePlaylist(playlistId: Long) {
+        viewModelScope.launch {
+            repository.deletePlaylist(playlistId)
+        }
+    }
+
+    fun addSongToPlaylist(playlistId: Long, songId: Long) {
+        viewModelScope.launch {
+            repository.addSongToPlaylist(playlistId, songId)
+        }
+    }
+
+    fun removeSongFromPlaylist(playlistId: Long, songId: Long) {
+        viewModelScope.launch {
+            repository.removeSongFromPlaylist(playlistId, songId)
+        }
+    }
+
+    fun getSongsForPlaylist(playlistId: Long): Flow<List<Song>> {
+        return repository.getSongsForPlaylist(playlistId)
+    }
+
+    fun syncDeviceAudio(onFinished: ((Int) -> Unit)? = null) {
+        viewModelScope.launch {
+            val count = repository.scanAndSyncDeviceAudio()
+            onFinished?.invoke(count)
+        }
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        playbackManager.release()
+    }
+}
