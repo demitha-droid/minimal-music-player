@@ -21,56 +21,56 @@ data class CustomColors(
     val isLight: Boolean = false
 )
 
-// --- Obsidian Dark Palette ---
+// --- Obsidian Flat Monochrome Palette ---
 val DarkColors = CustomColors(
-    background = Color(0xFF0C0C0E),
-    surface = Color(0xFF141418),
-    surfaceElevated = Color(0xFF1D1D24),
-    surfaceBorder = Color(0xFF282834),
-    primary = Color(0xFFA076F9),
-    primaryAccent = Color(0xFF7C4DFF),
-    secondary = Color(0xFF65D8FF),
+    background = Color(0xFF0E0E10),
+    surface = Color(0xFF161618),
+    surfaceElevated = Color(0xFF1E1E22),
+    surfaceBorder = Color(0xFF2C2C30),
+    primary = Color(0xFFFFFFFF),         // Monochrome pure white highlight
+    primaryAccent = Color(0xFFE5E5EA),
+    secondary = Color(0xFF8E8E93),       // Neutral gray for monochrome icons
     textPrimary = Color(0xFFF7F7F8),
-    textSecondary = Color(0xFF9494A6),
-    textMuted = Color(0xFF5E5E70),
-    heartActive = Color(0xFFFF4B6E),
-    equalizerGreen = Color(0xFF00E676),
-    glassSurface = Color(0xCC141418),
+    textSecondary = Color(0xFF8E8E93),
+    textMuted = Color(0xFF636366),
+    heartActive = Color(0xFFFFFFFF),     // Flat monochrome active heart
+    equalizerGreen = Color(0xFFD1D1D6),  // Flat monochrome equalizer
+    glassSurface = Color(0xE6161618),
     isLight = false
 )
 
-// --- AMOLED Pure Black Palette ---
+// --- AMOLED Flat Monochrome Palette ---
 val AmoledColors = CustomColors(
-    background = Color(0xFF000000),      // True 100% black for AMOLED
-    surface = Color(0xFF080808),         // Pure deep tone
-    surfaceElevated = Color(0xFF121212), // Subtle elevated card
-    surfaceBorder = Color(0xFF222222),   // Crisp contrast outline
-    primary = Color(0xFFA78BFA),         // Bright vivid violet
-    primaryAccent = Color(0xFF8B5CF6),
-    secondary = Color(0xFF38BDF8),       // Electric cyan
+    background = Color(0xFF000000),      // True 100% flat black
+    surface = Color(0xFF0A0A0A),         // Pure deep tone
+    surfaceElevated = Color(0xFF141414), // Subtle flat card
+    surfaceBorder = Color(0xFF242424),   // Crisp flat outline
+    primary = Color(0xFFFFFFFF),         // Monochrome pure white highlight
+    primaryAccent = Color(0xFFE5E5EA),
+    secondary = Color(0xFF8E8E93),       // Neutral gray for monochrome icons
     textPrimary = Color(0xFFFFFFFF),     // Pure white for highest contrast
-    textSecondary = Color(0xFFA1A1AA),
-    textMuted = Color(0xFF71717A),
-    heartActive = Color(0xFFFF3366),
-    equalizerGreen = Color(0xFF00E676),
+    textSecondary = Color(0xFF8E8E93),
+    textMuted = Color(0xFF636366),
+    heartActive = Color(0xFFFFFFFF),     // Flat monochrome active heart
+    equalizerGreen = Color(0xFFFFFFFF),  // Flat monochrome equalizer
     glassSurface = Color(0xE6000000),
     isLight = false
 )
 
-// --- Minimal Light Palette ---
+// --- Minimal Light Flat Monochrome Palette ---
 val LightColors = CustomColors(
-    background = Color(0xFFF8F9FA),      // Clean ivory-tinted white
-    surface = Color(0xFFFFFFFF),         // Crisp pure white cards
-    surfaceElevated = Color(0xFFF1F3F5), // Soft elevated background
-    surfaceBorder = Color(0xFFE5E7EB),   // Light border outline
-    primary = Color(0xFF7C3AED),         // Deep royal violet
-    primaryAccent = Color(0xFF6D28D9),
-    secondary = Color(0xFF0284C7),       // Clean sky blue
-    textPrimary = Color(0xFF111827),     // Deep charcoal/black
-    textSecondary = Color(0xFF4B5563),   // Slate grey
-    textMuted = Color(0xFF9CA3AF),       // Muted slate
-    heartActive = Color(0xFFE11D48),
-    equalizerGreen = Color(0xFF059669),
+    background = Color(0xFFF5F5F7),      // Clean flat light background
+    surface = Color(0xFFFFFFFF),         // Pure white cards
+    surfaceElevated = Color(0xFFE5E5EA), // Soft flat secondary surface
+    surfaceBorder = Color(0xFFD1D1D6),   // Subtle flat border outline
+    primary = Color(0xFF000000),         // Monochrome pure black highlight
+    primaryAccent = Color(0xFF1C1C1E),
+    secondary = Color(0xFF636366),       // Neutral gray for monochrome icons
+    textPrimary = Color(0xFF111827),     // Deep charcoal
+    textSecondary = Color(0xFF636366),
+    textMuted = Color(0xFF8E8E93),
+    heartActive = Color(0xFF000000),     // Flat monochrome active heart
+    equalizerGreen = Color(0xFF1C1C1E),  // Flat monochrome equalizer
     glassSurface = Color(0xEEFFFFFF),
     isLight = true
 )
@@ -94,3 +94,4 @@ val TextMuted: Color @Composable get() = LocalCustomColors.current.textMuted
 val HeartActive: Color @Composable get() = LocalCustomColors.current.heartActive
 val EqualizerGreen: Color @Composable get() = LocalCustomColors.current.equalizerGreen
 val GlassSurface: Color @Composable get() = LocalCustomColors.current.glassSurface
+val IconGray: Color @Composable get() = LocalCustomColors.current.secondary

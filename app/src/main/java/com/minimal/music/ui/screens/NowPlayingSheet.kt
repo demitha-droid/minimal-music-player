@@ -74,6 +74,7 @@ import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.HeartActive
 import com.minimal.music.ui.theme.PrimaryViolet
 import com.minimal.music.ui.theme.SurfaceBorder
+import com.minimal.music.ui.theme.SurfaceDark
 import com.minimal.music.ui.theme.SurfaceElevated
 import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
@@ -163,35 +164,22 @@ fun NowPlayingSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Vinyl / Album Cover Artwork
+            // Flat Disc / Album Cover Artwork
             Box(
                 modifier = Modifier
                     .sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
                     .aspectRatio(1f)
                     .clip(CircleShape)
-                    .background(
-                        Brush.radialGradient(
-                            listOf(
-                                Color(0xFF282835),
-                                Color(0xFF14141B),
-                                Color(0xFF09090D)
-                            )
-                        )
-                    )
-                    .border(2.dp, SurfaceBorder, CircleShape)
+                    .background(SurfaceElevated)
+                    .border(1.dp, SurfaceBorder, CircleShape)
                     .rotate(if (playbackState.isPlaying) rotation else 0f),
                 contentAlignment = Alignment.Center
             ) {
-                // Vinyl grooves rings
+                // Subtle flat ring
                 Box(
                     modifier = Modifier
-                        .size(230.dp)
-                        .border(1.dp, Color(0xFF20202A), CircleShape)
-                )
-                Box(
-                    modifier = Modifier
-                        .size(180.dp)
-                        .border(1.dp, Color(0xFF252532), CircleShape)
+                        .fillMaxSize(0.85f)
+                        .border(1.dp, SurfaceBorder.copy(alpha = 0.5f), CircleShape)
                 )
 
                 // Center Label
@@ -257,9 +245,9 @@ fun NowPlayingSheet(
                         isUserSeeking = false
                     },
                     colors = SliderDefaults.colors(
-                        thumbColor = PrimaryViolet,
-                        activeTrackColor = PrimaryViolet,
-                        inactiveTrackColor = SurfaceElevated
+                        thumbColor = TextPrimary,
+                        activeTrackColor = TextPrimary,
+                        inactiveTrackColor = SurfaceBorder
                     ),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -298,7 +286,7 @@ fun NowPlayingSheet(
                     Icon(
                         imageVector = Icons.Rounded.Shuffle,
                         contentDescription = "Shuffle",
-                        tint = if (playbackState.isShuffle) PrimaryViolet else TextMuted,
+                        tint = if (playbackState.isShuffle) TextPrimary else TextMuted,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -311,7 +299,7 @@ fun NowPlayingSheet(
                     Icon(
                         imageVector = Icons.Rounded.SkipPrevious,
                         contentDescription = "Previous",
-                        tint = TextPrimary,
+                        tint = TextSecondary,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -321,14 +309,14 @@ fun NowPlayingSheet(
                     modifier = Modifier
                         .size(68.dp)
                         .clip(CircleShape)
-                        .background(PrimaryViolet)
+                        .background(TextPrimary)
                         .clickable { viewModel.togglePlayPause() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = if (playbackState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
-                        tint = Color.Black,
+                        tint = BgDark,
                         modifier = Modifier.size(36.dp)
                     )
                 }
@@ -341,7 +329,7 @@ fun NowPlayingSheet(
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Next",
-                        tint = TextPrimary,
+                        tint = TextSecondary,
                         modifier = Modifier.size(32.dp)
                     )
                 }
@@ -354,7 +342,7 @@ fun NowPlayingSheet(
                     }
                     val repeatTint = when (playbackState.repeatMode) {
                         AppRepeatMode.OFF -> TextMuted
-                        else -> PrimaryViolet
+                        else -> TextPrimary
                     }
                     Icon(
                         imageVector = repeatIcon,
@@ -380,10 +368,10 @@ fun NowPlayingSheet(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
-                        .background(if (isTimerActive) Color(0xFF2B2240) else SurfaceElevated)
+                        .background(if (isTimerActive) SurfaceDark else SurfaceElevated)
                         .border(
                             1.dp,
-                            if (isTimerActive) PrimaryViolet else SurfaceBorder,
+                            SurfaceBorder,
                             RoundedCornerShape(20.dp)
                         )
                         .clickable { showSleepTimerSheet = true }
@@ -394,7 +382,7 @@ fun NowPlayingSheet(
                     Icon(
                         imageVector = Icons.Rounded.Bedtime,
                         contentDescription = "Sleep Timer",
-                        tint = if (isTimerActive) PrimaryViolet else TextSecondary,
+                        tint = if (isTimerActive) TextPrimary else TextSecondary,
                         modifier = Modifier.size(16.dp)
                     )
                     Text(
@@ -409,7 +397,7 @@ fun NowPlayingSheet(
                             else -> "Sleep Timer"
                         },
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (isTimerActive) PrimaryViolet else TextSecondary,
+                            color = if (isTimerActive) TextPrimary else TextSecondary,
                             fontWeight = if (isTimerActive) FontWeight.Bold else FontWeight.Medium
                         )
                     )

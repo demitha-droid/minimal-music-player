@@ -145,12 +145,12 @@ fun PlaylistsScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(PrimaryViolet)
+                        .background(SurfaceElevated)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Add,
                         contentDescription = "Create Playlist",
-                        tint = Color.Black,
+                        tint = TextSecondary,
                         modifier = Modifier.size(22.dp)
                     )
                 }
@@ -177,7 +177,7 @@ fun PlaylistsScreen(
                     title = "Most Played",
                     subtitle = "${mostPlayed.size} tracks on repeat",
                     icon = Icons.Rounded.LocalFireDepartment,
-                    iconTint = Color(0xFFFF9100),
+                    iconTint = TextSecondary,
                     onClick = { onOpenSmartPlaylist("Most Played") }
                 )
 
@@ -185,7 +185,7 @@ fun PlaylistsScreen(
                     title = "Most Popular Hits",
                     subtitle = "${mostPopular.size} trending top charts",
                     icon = Icons.Rounded.Star,
-                    iconTint = SecondaryCyan,
+                    iconTint = TextSecondary,
                     onClick = { onOpenSmartPlaylist("Most Popular") }
                 )
             }
@@ -253,7 +253,7 @@ private fun SmartPlaylistTile(
             modifier = Modifier
                 .size(44.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(iconTint.copy(alpha = 0.15f)),
+                .background(SurfaceElevated),
             contentAlignment = Alignment.Center
         ) {
             Icon(
@@ -306,7 +306,7 @@ private fun CustomPlaylistItem(
             Icon(
                 imageVector = Icons.Rounded.QueueMusic,
                 contentDescription = null,
-                tint = PrimaryViolet,
+                tint = TextSecondary,
                 modifier = Modifier.size(22.dp)
             )
         }

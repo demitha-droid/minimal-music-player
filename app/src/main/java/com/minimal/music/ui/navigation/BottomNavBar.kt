@@ -30,6 +30,7 @@ import com.minimal.music.ui.theme.SurfaceBorder
 import com.minimal.music.ui.theme.SurfaceDark
 import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
+import com.minimal.music.ui.theme.TextSecondary
 
 @Composable
 fun MinimalBottomNavBar(
@@ -69,7 +70,7 @@ fun MinimalBottomNavBar(
                         Icon(
                             imageVector = icon,
                             contentDescription = screen.title,
-                            tint = if (selected) PrimaryViolet else TextMuted,
+                            tint = if (selected) TextPrimary else TextSecondary,
                             modifier = Modifier.size(24.dp)
                         )
                     }
@@ -77,7 +78,7 @@ fun MinimalBottomNavBar(
                     Text(
                         text = screen.title,
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (selected) TextPrimary else TextMuted,
+                            color = if (selected) TextPrimary else TextSecondary,
                             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                             fontSize = 11.sp
                         )
@@ -88,7 +89,7 @@ fun MinimalBottomNavBar(
                             modifier = Modifier
                                 .size(width = 16.dp, height = 2.dp)
                                 .clip(CircleShape)
-                                .background(PrimaryViolet)
+                                .background(TextPrimary)
                         )
                     }
                 }

@@ -74,20 +74,12 @@ fun MinimalArtwork(
     size: Dp? = 48.dp,
     shapeRadius: Dp = 12.dp
 ) {
-    // Generate deterministic pleasing colors from title hash
-    val charCode = title.fold(0) { acc, c -> acc + c.code }
-    val hue1 = (charCode % 360).toFloat()
-    val hue2 = ((charCode + 60) % 360).toFloat()
-
-    val color1 = Color.hsl(hue1, 0.45f, 0.22f)
-    val color2 = Color.hsl(hue2, 0.65f, 0.12f)
-
     val baseModifier = if (size != null) modifier.size(size) else modifier
 
     Box(
         modifier = baseModifier
             .clip(RoundedCornerShape(shapeRadius))
-            .background(Brush.linearGradient(listOf(color1, color2)))
+            .background(SurfaceElevated)
             .border(1.dp, SurfaceBorder, RoundedCornerShape(shapeRadius)),
         contentAlignment = Alignment.Center
     ) {
@@ -97,7 +89,7 @@ fun MinimalArtwork(
             style = MaterialTheme.typography.titleMedium.copy(
                 fontSize = if (size != null) (size.value * 0.32f).sp else 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = TextPrimary.copy(alpha = 0.85f)
+                color = TextSecondary
             )
         )
     }
@@ -268,7 +260,7 @@ fun MinimalSearchBar(
                     onValueChange = onQueryChange,
                     singleLine = true,
                     textStyle = MaterialTheme.typography.bodyMedium.copy(color = TextPrimary),
-                    cursorBrush = SolidColor(PrimaryViolet),
+                    cursorBrush = SolidColor(TextPrimary),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -312,7 +304,7 @@ fun ThemeSwitcherButton(
             Icon(
                 imageVector = icon,
                 contentDescription = "Theme: ${currentTheme.title}",
-                tint = PrimaryViolet,
+                tint = TextSecondary,
                 modifier = Modifier.size(20.dp)
             )
         }

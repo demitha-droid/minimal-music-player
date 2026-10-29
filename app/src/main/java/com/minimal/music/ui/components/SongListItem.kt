@@ -37,6 +37,7 @@ import androidx.compose.ui.unit.sp
 import com.minimal.music.data.model.Song
 import com.minimal.music.ui.theme.HeartActive
 import com.minimal.music.ui.theme.PrimaryViolet
+import com.minimal.music.ui.theme.SurfaceElevated
 import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
 import com.minimal.music.ui.theme.TextSecondary
@@ -77,8 +78,8 @@ fun SongListItem(
             Text(
                 text = song.title,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    color = if (isCurrentSong) PrimaryViolet else TextPrimary,
-                    fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Medium
+                    color = TextPrimary,
+                    fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Normal
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
@@ -95,21 +96,21 @@ fun SongListItem(
                         modifier = Modifier
                             .widthIn(max = 110.dp)
                             .clip(RoundedCornerShape(4.dp))
-                            .background(androidx.compose.ui.graphics.Color(0xFF262114))
-                            .padding(horizontal = 4.dp, vertical = 1.dp)
+                            .background(SurfaceElevated)
+                            .padding(horizontal = 5.dp, vertical = 1.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Folder,
                             contentDescription = null,
-                            tint = androidx.compose.ui.graphics.Color(0xFFFFB300),
+                            tint = TextSecondary,
                             modifier = Modifier.size(10.dp)
                         )
                         Text(
                             text = song.folderName,
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = androidx.compose.ui.graphics.Color(0xFFFFB300),
+                                color = TextSecondary,
                                 fontSize = 10.sp,
-                                fontWeight = FontWeight.SemiBold
+                                fontWeight = FontWeight.Medium
                             ),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
@@ -129,7 +130,7 @@ fun SongListItem(
                     Text(
                         text = "• ${song.playCount} plays",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = PrimaryViolet.copy(alpha = 0.8f),
+                            color = TextMuted,
                             fontSize = 10.sp
                         )
                     )

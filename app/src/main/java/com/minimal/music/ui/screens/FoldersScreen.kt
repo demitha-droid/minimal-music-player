@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import com.minimal.music.data.model.Song
 import com.minimal.music.data.source.FileExplorerItem
 import com.minimal.music.ui.components.EqualizerIndicator
+import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.PrimaryViolet
 import com.minimal.music.ui.theme.SecondaryCyan
 import com.minimal.music.ui.theme.SurfaceBorder
@@ -159,7 +160,7 @@ fun FoldersScreen(
                     Icon(
                         imageVector = Icons.Rounded.CreateNewFolder,
                         contentDescription = "Pick folder from storage",
-                        tint = SecondaryCyan,
+                        tint = TextSecondary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -170,12 +171,12 @@ fun FoldersScreen(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(PrimaryViolet)
+                        .background(SurfaceElevated)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.NoteAdd,
                         contentDescription = "Pick audio files",
-                        tint = Color.Black,
+                        tint = TextSecondary,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -196,14 +197,14 @@ fun FoldersScreen(
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
-                        .background(if (isSelected) PrimaryViolet else SurfaceElevated)
+                        .background(if (isSelected) TextPrimary else SurfaceElevated)
                         .clickable { viewModel.navigateTo(root) }
                         .padding(horizontal = 14.dp, vertical = 6.dp)
                 ) {
                     Text(
                         text = root.name.ifEmpty { "Storage" },
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = if (isSelected) Color.Black else TextSecondary,
+                            color = if (isSelected) BgDark else TextSecondary,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                         )
                     )
@@ -254,14 +255,14 @@ fun FoldersScreen(
                                 }
                             }
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                        colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
                         shape = RoundedCornerShape(8.dp),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
                         modifier = Modifier.height(30.dp)
                     ) {
                         Text(
                             text = "Add All (${audioItemsInCurrentDir.size})",
-                            color = Color.Black,
+                            color = BgDark,
                             style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
                         )
                     }
@@ -386,13 +387,13 @@ private fun DirectoryRow(
             modifier = Modifier
                 .size(42.dp)
                 .clip(RoundedCornerShape(10.dp))
-                .background(Color(0xFF24221A)),
+                .background(SurfaceElevated),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Rounded.Folder,
                 contentDescription = null,
-                tint = Color(0xFFFFB300),
+                tint = TextSecondary,
                 modifier = Modifier.size(24.dp)
             )
         }
@@ -414,7 +415,7 @@ private fun DirectoryRow(
             Text(
                 text = details,
                 style = MaterialTheme.typography.bodySmall.copy(
-                    color = if (item.audioCount > 0) SecondaryCyan else TextMuted
+                    color = TextMuted
                 )
             )
         }
@@ -427,7 +428,7 @@ private fun DirectoryRow(
                 Icon(
                     imageVector = Icons.Rounded.Add,
                     contentDescription = "Add folder to library",
-                    tint = PrimaryViolet,
+                    tint = TextSecondary,
                     modifier = Modifier.size(20.dp)
                 )
             }
@@ -469,7 +470,7 @@ private fun AudioFileRow(
                 Icon(
                     imageVector = Icons.Rounded.MusicNote,
                     contentDescription = null,
-                    tint = if (isCurrentSong) PrimaryViolet else TextSecondary,
+                    tint = if (isCurrentSong) TextPrimary else TextSecondary,
                     modifier = Modifier.size(22.dp)
                 )
             }
@@ -479,8 +480,8 @@ private fun AudioFileRow(
             Text(
                 text = item.song.title,
                 style = MaterialTheme.typography.titleMedium.copy(
-                    color = if (isCurrentSong) PrimaryViolet else TextPrimary,
-                    fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Medium
+                    color = TextPrimary,
+                    fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Normal
                 ),
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis

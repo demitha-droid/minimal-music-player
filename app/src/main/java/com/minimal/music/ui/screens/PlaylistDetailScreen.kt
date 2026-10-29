@@ -34,10 +34,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.minimal.music.data.model.Song
 import com.minimal.music.ui.components.SongListItem
+import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.PrimaryViolet
+import com.minimal.music.ui.theme.SurfaceBorder
 import com.minimal.music.ui.theme.SurfaceDark
 import com.minimal.music.ui.theme.SurfaceElevated
 import com.minimal.music.ui.theme.TextMuted
@@ -75,12 +78,12 @@ fun PlaylistDetailScreen(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(SurfaceDark)
+                    .background(SurfaceElevated)
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
                     contentDescription = "Back",
-                    tint = TextPrimary
+                    tint = TextSecondary
                 )
             }
 
@@ -107,33 +110,34 @@ fun PlaylistDetailScreen(
                 Button(
                     onClick = { viewModel.playQueue(songs, 0) },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                    colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = null,
-                        tint = Color.Black,
+                        tint = BgDark,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Play All", color = Color.Black, style = MaterialTheme.typography.titleMedium)
+                    Text("Play All", color = BgDark, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 }
 
                 Button(
                     onClick = { viewModel.playQueue(songs.shuffled(), 0) },
                     modifier = Modifier.weight(1f),
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated),
+                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceBorder),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Shuffle,
                         contentDescription = null,
-                        tint = TextPrimary,
+                        tint = TextSecondary,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Shuffle", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
+                    Text("Shuffle", color = TextSecondary, style = MaterialTheme.typography.titleMedium)
                 }
             }
 

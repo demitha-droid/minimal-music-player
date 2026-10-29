@@ -56,6 +56,7 @@ import com.minimal.music.ui.theme.SurfaceDark
 import com.minimal.music.ui.theme.SurfaceElevated
 import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
+import com.minimal.music.ui.theme.TextSecondary
 import com.minimal.music.ui.viewmodel.MusicViewModel
 import kotlinx.coroutines.launch
 
@@ -247,7 +248,7 @@ fun MainScreen(viewModel: MusicViewModel) {
                                 Icon(
                                     imageVector = Icons.Rounded.QueueMusic,
                                     contentDescription = null,
-                                    tint = PrimaryViolet,
+                                    tint = TextSecondary,
                                     modifier = Modifier.size(20.dp)
                                 )
                                 Text(

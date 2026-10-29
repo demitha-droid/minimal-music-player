@@ -46,8 +46,10 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.minimal.music.player.PlaybackState
+import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.PrimaryViolet
 import com.minimal.music.ui.theme.SurfaceBorder
+import com.minimal.music.ui.theme.SurfaceDark
 import com.minimal.music.ui.theme.SurfaceElevated
 import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
@@ -133,7 +135,7 @@ fun MiniPlayerBar(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp),
-                color = PrimaryViolet,
+                color = TextPrimary,
                 trackColor = Color.Transparent
             )
 
@@ -189,21 +191,21 @@ fun MiniPlayerBar(
                                     horizontalArrangement = Arrangement.spacedBy(2.dp),
                                     modifier = Modifier
                                         .clip(RoundedCornerShape(4.dp))
-                                        .background(Color(0xFF262038))
+                                        .background(SurfaceDark)
                                         .padding(horizontal = 4.dp, vertical = 1.dp)
                                 ) {
                                     Icon(
                                         imageVector = Icons.Rounded.Bedtime,
                                         contentDescription = null,
-                                        tint = PrimaryViolet,
+                                        tint = TextSecondary,
                                         modifier = Modifier.size(10.dp)
                                     )
                                     Text(
                                         text = "${totalMin}m",
                                         style = MaterialTheme.typography.bodySmall.copy(
-                                            color = PrimaryViolet,
+                                            color = TextSecondary,
                                             fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold
+                                            fontWeight = FontWeight.Medium
                                         )
                                     )
                                 }
@@ -217,12 +219,12 @@ fun MiniPlayerBar(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(PrimaryViolet)
+                        .background(TextPrimary)
                 ) {
                     Icon(
                         imageVector = if (playbackState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
-                        tint = Color.Black,
+                        tint = BgDark,
                         modifier = Modifier.size(20.dp)
                     )
                 }
@@ -234,7 +236,7 @@ fun MiniPlayerBar(
                     Icon(
                         imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Next Track",
-                        tint = TextPrimary,
+                        tint = TextSecondary,
                         modifier = Modifier.size(22.dp)
                     )
                 }

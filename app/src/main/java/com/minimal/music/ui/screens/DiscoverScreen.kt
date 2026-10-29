@@ -47,6 +47,7 @@ import com.minimal.music.data.model.Song
 import com.minimal.music.ui.components.MinimalArtwork
 import com.minimal.music.ui.components.SongListItem
 import com.minimal.music.ui.components.ThemeSwitcherButton
+import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.PrimaryAccent
 import com.minimal.music.ui.theme.PrimaryViolet
 import com.minimal.music.ui.theme.SecondaryCyan
@@ -136,7 +137,7 @@ fun DiscoverScreen(
                         Icon(
                             imageVector = Icons.Rounded.TrendingUp,
                             contentDescription = null,
-                            tint = SecondaryCyan,
+                            tint = TextSecondary,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
@@ -183,7 +184,7 @@ fun DiscoverScreen(
                         Icon(
                             imageVector = Icons.Rounded.LocalFireDepartment,
                             contentDescription = null,
-                            tint = Color(0xFFFF9100),
+                            tint = TextSecondary,
                             modifier = Modifier.size(20.dp)
                         )
                         Text(
@@ -234,18 +235,11 @@ private fun HeroCard(
     onShuffle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val isLight = com.minimal.music.ui.theme.LocalCustomColors.current.isLight
-    val gradientColors = if (isLight) {
-        listOf(Color(0xFFEDE9FE), Color(0xFFE0F2FE))
-    } else {
-        listOf(Color(0xFF201633), Color(0xFF141926))
-    }
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(Brush.horizontalGradient(gradientColors))
+            .background(SurfaceElevated)
             .border(1.dp, SurfaceBorder, RoundedCornerShape(20.dp))
             .padding(20.dp)
     ) {
@@ -259,7 +253,7 @@ private fun HeroCard(
                     Text(
                         text = "VIBE OF THE DAY",
                         style = MaterialTheme.typography.bodySmall.copy(
-                            color = PrimaryViolet,
+                            color = TextSecondary,
                             letterSpacing = 1.2.sp,
                             fontWeight = FontWeight.Bold
                         )
@@ -274,14 +268,14 @@ private fun HeroCard(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(PrimaryViolet)
+                        .background(TextPrimary)
                         .clickable { onPlayAll() },
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = "Play All",
-                        tint = Color.Black,
+                        tint = BgDark,
                         modifier = Modifier.size(26.dp)
                     )
                 }
@@ -290,22 +284,23 @@ private fun HeroCard(
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Button(
                     onClick = onPlayAll,
-                    colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated),
+                    colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = null,
                         modifier = Modifier.size(16.dp),
-                        tint = TextPrimary
+                        tint = BgDark
                     )
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text(text = "Play Top", color = TextPrimary, style = MaterialTheme.typography.titleMedium)
+                    Text(text = "Play Top", color = BgDark, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold))
                 }
 
                 Button(
                     onClick = onShuffle,
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, SurfaceBorder),
                     shape = RoundedCornerShape(12.dp)
                 ) {
                     Icon(

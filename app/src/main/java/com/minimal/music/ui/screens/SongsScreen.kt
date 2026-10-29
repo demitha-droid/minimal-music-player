@@ -72,6 +72,7 @@ import com.minimal.music.ui.components.FolderCoverImage
 import com.minimal.music.ui.components.MinimalSearchBar
 import com.minimal.music.ui.components.SongListItem
 import com.minimal.music.ui.components.ThemeSwitcherButton
+import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.PrimaryViolet
 import com.minimal.music.ui.theme.SecondaryCyan
 import com.minimal.music.ui.theme.SurfaceBorder
@@ -169,7 +170,7 @@ fun SongsScreen(
                         Icon(
                             imageVector = Icons.Rounded.CreateNewFolder,
                             contentDescription = "Add folder to library",
-                            tint = SecondaryCyan,
+                            tint = TextSecondary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -234,13 +235,13 @@ fun SongsScreen(
                             modifier = Modifier
                                 .size(72.dp)
                                 .clip(RoundedCornerShape(20.dp))
-                                .background(Color(0xFF262114)),
+                                .background(SurfaceElevated),
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.FolderOpen,
                                 contentDescription = null,
-                                tint = Color(0xFFFFB300),
+                                tint = TextSecondary,
                                 modifier = Modifier.size(36.dp)
                             )
                         }
@@ -264,19 +265,19 @@ fun SongsScreen(
                         Button(
                             onClick = { folderPickerLauncher.launch(null) },
                             shape = RoundedCornerShape(50),
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                            colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
                             modifier = Modifier.height(44.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Add,
                                 contentDescription = null,
-                                tint = Color.Black,
+                                tint = BgDark,
                                 modifier = Modifier.size(18.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = "Add Folder from Device",
-                                color = Color.Black,
+                                color = BgDark,
                                 fontWeight = FontWeight.Bold
                             )
                         }
@@ -432,7 +433,7 @@ fun SongsScreen(
                         Icon(
                             imageVector = Icons.Rounded.ImageSearch,
                             contentDescription = "Find web artwork",
-                            tint = SecondaryCyan,
+                            tint = TextSecondary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -637,7 +638,7 @@ private fun FolderGalleryCard(
                     Icon(
                         imageVector = Icons.Rounded.Folder,
                         contentDescription = null,
-                        tint = Color(0xFFFFB300),
+                        tint = TextSecondary,
                         modifier = Modifier.size(13.dp)
                     )
                     Text(
@@ -672,19 +673,19 @@ private fun FolderGalleryCard(
                         .weight(1f)
                         .height(32.dp),
                     shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                    colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = "Play",
-                        tint = Color.Black,
+                        tint = BgDark,
                         modifier = Modifier.size(14.dp)
                     )
                     Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "Play",
-                        color = Color.Black,
+                        color = BgDark,
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.Bold,
                             fontSize = 11.sp
@@ -737,27 +738,26 @@ private fun CompactArtworkActionRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        // Keep Button (Pill shaped, emerald)
+        // Keep Button (Flat monochrome)
         Button(
             onClick = onKeep,
             modifier = Modifier
                 .weight(1f)
                 .height(28.dp),
             shape = RoundedCornerShape(50),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B382B)),
-            border = BorderStroke(1.dp, Color(0xFF34D399)),
+            colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
             contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
         ) {
             Icon(
                 imageVector = Icons.Rounded.Check,
                 contentDescription = null,
-                tint = Color(0xFF34D399),
+                tint = BgDark,
                 modifier = Modifier.size(12.dp)
             )
             Spacer(modifier = Modifier.width(3.dp))
             Text(
                 text = "Keep",
-                color = Color(0xFF34D399),
+                color = BgDark,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
                     fontSize = 10.sp
@@ -765,7 +765,7 @@ private fun CompactArtworkActionRow(
             )
         }
 
-        // Try Again Button (Pill shaped, cyan)
+        // Try Button (Flat monochrome outline)
         Button(
             onClick = onTryAgain,
             modifier = Modifier
@@ -779,13 +779,13 @@ private fun CompactArtworkActionRow(
             Icon(
                 imageVector = Icons.Rounded.Refresh,
                 contentDescription = null,
-                tint = SecondaryCyan,
+                tint = TextSecondary,
                 modifier = Modifier.size(12.dp)
             )
             Spacer(modifier = Modifier.width(3.dp))
             Text(
                 text = "Try",
-                color = SecondaryCyan,
+                color = TextSecondary,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Medium,
                     fontSize = 10.sp
@@ -857,7 +857,7 @@ private fun FolderHeaderBanner(
                         Text(
                             text = "✓ Album Cover Saved",
                             style = MaterialTheme.typography.bodySmall.copy(
-                                color = Color(0xFF34D399),
+                                color = TextSecondary,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium
                             )
@@ -878,13 +878,12 @@ private fun FolderHeaderBanner(
                             .weight(1f)
                             .height(34.dp),
                         shape = RoundedCornerShape(50),
-                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B382B)),
-                        border = BorderStroke(1.dp, Color(0xFF34D399)),
+                        colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                     ) {
-                        Icon(Icons.Rounded.Check, contentDescription = null, tint = Color(0xFF34D399), modifier = Modifier.size(15.dp))
+                        Icon(Icons.Rounded.Check, contentDescription = null, tint = BgDark, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Keep Cover", color = Color(0xFF34D399), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                        Text("Keep Cover", color = BgDark, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
                     }
 
                     Button(
@@ -897,9 +896,9 @@ private fun FolderHeaderBanner(
                         border = BorderStroke(1.dp, SurfaceBorder),
                         contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
                     ) {
-                        Icon(Icons.Rounded.Refresh, contentDescription = null, tint = SecondaryCyan, modifier = Modifier.size(14.dp))
+                        Icon(Icons.Rounded.Refresh, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(14.dp))
                         Spacer(modifier = Modifier.width(4.dp))
-                        Text("Try Another", color = SecondaryCyan, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium))
+                        Text("Try Another", color = TextSecondary, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium))
                     }
                 }
             }
@@ -916,19 +915,19 @@ private fun FolderHeaderBanner(
                         .weight(1f)
                         .height(42.dp),
                     shape = RoundedCornerShape(50),
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                    colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
                     contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
                         contentDescription = null,
-                        tint = Color.Black,
+                        tint = BgDark,
                         modifier = Modifier.size(18.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Play All",
-                        color = Color.Black,
+                        color = BgDark,
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold)
                     )
                 }
@@ -947,13 +946,13 @@ private fun FolderHeaderBanner(
                     Icon(
                         imageVector = Icons.Rounded.Shuffle,
                         contentDescription = null,
-                        tint = TextPrimary,
+                        tint = TextSecondary,
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
                         text = "Shuffle",
-                        color = TextPrimary,
+                        color = TextSecondary,
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
                     )
                 }

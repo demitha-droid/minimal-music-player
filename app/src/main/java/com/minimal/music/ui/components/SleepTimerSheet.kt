@@ -100,13 +100,13 @@ fun SleepTimerSheet(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF262038)),
+                            .background(SurfaceElevated),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Bedtime,
                             contentDescription = null,
-                            tint = PrimaryViolet,
+                            tint = TextSecondary,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -145,7 +145,7 @@ fun SleepTimerSheet(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(16.dp))
                         .background(SurfaceElevated)
-                        .border(1.dp, PrimaryViolet.copy(alpha = 0.6f), RoundedCornerShape(16.dp))
+                        .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
                         .padding(20.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -158,7 +158,7 @@ fun SleepTimerSheet(
                                 text = "Pausing at end of song",
                                 style = MaterialTheme.typography.headlineSmall.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = PrimaryViolet
+                                    color = TextPrimary
                                 )
                             )
                             Text(
@@ -178,7 +178,7 @@ fun SleepTimerSheet(
                                 text = formattedTime,
                                 style = MaterialTheme.typography.displayMedium.copy(
                                     fontWeight = FontWeight.Bold,
-                                    color = PrimaryViolet,
+                                    color = TextPrimary,
                                     fontSize = 44.sp,
                                     letterSpacing = 2.sp
                                 )
@@ -262,13 +262,13 @@ fun SleepTimerSheet(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(Color(0xFF1E2830)),
+                                    .background(SurfaceElevated),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.MusicNote,
                                     contentDescription = null,
-                                    tint = SecondaryCyan,
+                                    tint = TextSecondary,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }
@@ -311,7 +311,7 @@ fun SleepTimerSheet(
                         Text(
                             text = "${customMinutes.roundToInt()} min",
                             style = MaterialTheme.typography.titleMedium.copy(
-                                color = PrimaryViolet,
+                                color = TextPrimary,
                                 fontWeight = FontWeight.Bold
                             )
                         )
@@ -323,9 +323,9 @@ fun SleepTimerSheet(
                         valueRange = 5f..120f,
                         steps = 22,
                         colors = SliderDefaults.colors(
-                            thumbColor = PrimaryViolet,
-                            activeTrackColor = PrimaryViolet,
-                            inactiveTrackColor = SurfaceElevated
+                            thumbColor = TextPrimary,
+                            activeTrackColor = TextPrimary,
+                            inactiveTrackColor = SurfaceBorder
                         ),
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -335,13 +335,13 @@ fun SleepTimerSheet(
                             onStartTimer(customMinutes.roundToInt())
                             onDismiss()
                         },
-                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                        colors = ButtonDefaults.buttonColors(containerColor = TextPrimary),
                         shape = RoundedCornerShape(10.dp),
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Text(
                             text = "Start ${customMinutes.roundToInt()} Min Timer",
-                            color = Color.Black,
+                            color = BgDark,
                             fontWeight = FontWeight.Bold
                         )
                     }
