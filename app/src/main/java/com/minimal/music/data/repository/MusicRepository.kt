@@ -104,24 +104,14 @@ class MusicRepository(
             }
         }
 
-        // Backfill added_folders if missing
-        if (addedFolderDao.getFolderCount() == 0) {
-            val allSongsList = songDao.getAllSongsList()
-            val folderSongs = allSongsList.filter { !it.folderPath.isNullOrBlank() }
-            val groups = folderSongs.groupBy { it.folderPath!! }
-            for ((path, groupSongs) in groups) {
-                val name = groupSongs.firstOrNull()?.folderName ?: "Folder"
-                addedFolderDao.insertFolder(
-                    AddedFolderEntity(
-                        name = name,
-                        path = path,
-                        songCount = groupSongs.size
-                    )
-                )
-            }
+        // Clean slate migration: clear previously auto-populated folders so only manual folders appear
+        val prefs = context.getSharedPreferences("minimal_music_prefs", android.content.Context.MODE_PRIVATE)
+        if (!prefs.getBoolean("clean_slate_v1", false)) {
+            addedFolderDao.clearAll()
+            prefs.edit().putBoolean("clean_slate_v1", true).apply()
         }
 
-        // Check for any folders that need automatic artwork resolution
+        // Check for any manually added folders that need artwork resolution
         val allFolders = addedFolderDao.getAllFoldersList()
         for (folderEntity in allFolders) {
             if (folderEntity.artworkUri.isNullOrBlank()) {
@@ -130,6 +120,10 @@ class MusicRepository(
                 resolveAndSaveArtwork(model, songsInFolder, forceWeb = false)
             }
         }
+    }
+
+    suspend fun clearAllAddedFolders(): Int = withContext(Dispatchers.IO) {
+        addedFolderDao.clearAll()
     }
 
     suspend fun getSongsListForFolder(folderPath: String, folderName: String): List<Song> = withContext(Dispatchers.IO) {
@@ -182,31 +176,6 @@ class MusicRepository(
         if (deviceSongs.isNotEmpty()) {
             val entities = deviceSongs.map { SongEntity.fromModel(it) }
             songDao.insertSongs(entities)
-
-            // Group by folder and register
-            val folderGroups = deviceSongs.groupBy { it.folderPath ?: "" }
-            for ((path, groupSongs) in folderGroups) {
-                if (path.isNotBlank()) {
-                    val folderName = groupSongs.firstOrNull()?.folderName ?: "Music Folder"
-                    val existing = addedFolderDao.getFolderByPath(path)
-                    val folderId = if (existing != null) {
-                        addedFolderDao.updateSongCount(existing.id, existing.songCount + groupSongs.size)
-                        existing.id
-                    } else {
-                        addedFolderDao.insertFolder(
-                            AddedFolderEntity(
-                                name = folderName,
-                                path = path,
-                                songCount = groupSongs.size
-                            )
-                        )
-                    }
-                    val updatedFolder = addedFolderDao.getFolderById(folderId)?.toModel()
-                    if (updatedFolder != null && updatedFolder.artworkUri.isNullOrBlank()) {
-                        resolveAndSaveArtwork(updatedFolder, groupSongs, forceWeb = false)
-                    }
-                }
-            }
         }
         deviceSongs.size
     }
@@ -221,28 +190,6 @@ class MusicRepository(
         if (songs.isNotEmpty()) {
             val entities = songs.map { SongEntity.fromModel(it) }
             songDao.insertSongs(entities)
-
-            // Register parent folders
-            val folderGroups = songs.groupBy { it.folderPath ?: "" }
-            for ((path, groupSongs) in folderGroups) {
-                if (path.isNotBlank()) {
-                    val folderName = groupSongs.firstOrNull()?.folderName ?: "Folder"
-                    val existing = addedFolderDao.getFolderByPath(path)
-                    val newCount = (existing?.songCount ?: 0) + groupSongs.size
-                    val folderId = addedFolderDao.insertFolder(
-                        AddedFolderEntity(
-                            id = existing?.id ?: 0L,
-                            name = folderName,
-                            path = path,
-                            songCount = newCount
-                        )
-                    )
-                    val folderEntity = addedFolderDao.getFolderById(if (existing != null) existing.id else folderId)
-                    if (folderEntity != null && folderEntity.artworkUri.isNullOrBlank()) {
-                        resolveAndSaveArtwork(folderEntity.toModel(), groupSongs, forceWeb = false)
-                    }
-                }
-            }
         }
         songs.size
     }

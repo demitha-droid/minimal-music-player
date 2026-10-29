@@ -46,6 +46,7 @@ import androidx.compose.ui.unit.sp
 import com.minimal.music.data.model.Song
 import com.minimal.music.ui.components.MinimalArtwork
 import com.minimal.music.ui.components.SongListItem
+import com.minimal.music.ui.components.ThemeSwitcherButton
 import com.minimal.music.ui.theme.PrimaryAccent
 import com.minimal.music.ui.theme.PrimaryViolet
 import com.minimal.music.ui.theme.SecondaryCyan
@@ -67,25 +68,37 @@ fun DiscoverScreen(
     val mostPlayed by viewModel.mostPlayed.collectAsState()
     val allSongs by viewModel.allSongs.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
 
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 20.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        // App Title & Tagline
+        // App Title & Tagline + Theme Switcher
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    text = "Discover",
-                    style = MaterialTheme.typography.headlineLarge
-                )
-                Text(
-                    text = "Clean, distraction-free listening",
-                    style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "Discover",
+                        style = MaterialTheme.typography.headlineLarge
+                    )
+                    Text(
+                        text = "Clean, distraction-free listening",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
+                    )
+                }
+
+                ThemeSwitcherButton(
+                    currentTheme = themeMode,
+                    onThemeSelect = { viewModel.setThemeMode(it) }
                 )
             }
         }
@@ -221,18 +234,18 @@ private fun HeroCard(
     onShuffle: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val isLight = com.minimal.music.ui.theme.LocalCustomColors.current.isLight
+    val gradientColors = if (isLight) {
+        listOf(Color(0xFFEDE9FE), Color(0xFFE0F2FE))
+    } else {
+        listOf(Color(0xFF201633), Color(0xFF141926))
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(20.dp))
-            .background(
-                Brush.horizontalGradient(
-                    listOf(
-                        Color(0xFF201633),
-                        Color(0xFF141926)
-                    )
-                )
-            )
+            .background(Brush.horizontalGradient(gradientColors))
             .border(1.dp, SurfaceBorder, RoundedCornerShape(20.dp))
             .padding(20.dp)
     ) {

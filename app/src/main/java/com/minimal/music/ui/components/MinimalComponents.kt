@@ -25,8 +25,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Clear
+import androidx.compose.material.icons.rounded.Contrast
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Search
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -56,6 +62,7 @@ import com.minimal.music.ui.theme.SurfaceElevated
 import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
 import com.minimal.music.ui.theme.TextSecondary
+import com.minimal.music.ui.theme.ThemeMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -279,3 +286,69 @@ fun MinimalSearchBar(
         }
     }
 }
+
+@Composable
+fun ThemeSwitcherButton(
+    currentTheme: ThemeMode,
+    onThemeSelect: (ThemeMode) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var expanded by remember { mutableStateOf(false) }
+
+    val icon = when (currentTheme) {
+        ThemeMode.DARK -> Icons.Rounded.DarkMode
+        ThemeMode.AMOLED -> Icons.Rounded.Contrast
+        ThemeMode.LIGHT -> Icons.Rounded.LightMode
+    }
+
+    Box(modifier = modifier) {
+        IconButton(
+            onClick = { expanded = true },
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(SurfaceElevated)
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = "Theme: ${currentTheme.title}",
+                tint = PrimaryViolet,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(SurfaceElevated)
+        ) {
+            ThemeMode.values().forEach { mode ->
+                DropdownMenuItem(
+                    text = {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val modeIcon = when (mode) {
+                                ThemeMode.DARK -> "🌙"
+                                ThemeMode.AMOLED -> "⬛"
+                                ThemeMode.LIGHT -> "☀️"
+                            }
+                            Text(text = modeIcon)
+                            Text(
+                                text = mode.title,
+                                fontWeight = if (mode == currentTheme) FontWeight.Bold else FontWeight.Normal,
+                                color = if (mode == currentTheme) PrimaryViolet else TextPrimary
+                            )
+                        }
+                    },
+                    onClick = {
+                        expanded = false
+                        onThemeSelect(mode)
+                    }
+                )
+            }
+        }
+    }
+}
+

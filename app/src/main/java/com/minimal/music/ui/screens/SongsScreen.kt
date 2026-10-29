@@ -71,6 +71,7 @@ import com.minimal.music.data.model.Song
 import com.minimal.music.ui.components.FolderCoverImage
 import com.minimal.music.ui.components.MinimalSearchBar
 import com.minimal.music.ui.components.SongListItem
+import com.minimal.music.ui.components.ThemeSwitcherButton
 import com.minimal.music.ui.theme.PrimaryViolet
 import com.minimal.music.ui.theme.SecondaryCyan
 import com.minimal.music.ui.theme.SurfaceBorder
@@ -94,6 +95,7 @@ fun SongsScreen(
     val openedFolder by viewModel.openedFolder.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
+    val themeMode by viewModel.themeMode.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -150,6 +152,12 @@ fun SongsScreen(
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    // Theme Switcher Button
+                    ThemeSwitcherButton(
+                        currentTheme = themeMode,
+                        onThemeSelect = { viewModel.setThemeMode(it) }
+                    )
+
                     // Add Folder Shortcut
                     IconButton(
                         onClick = { folderPickerLauncher.launch(null) },
@@ -212,7 +220,7 @@ fun SongsScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 120.dp),
+                        .padding(bottom = 20.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Column(
@@ -278,7 +286,7 @@ fun SongsScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 120.dp),
+                        .padding(bottom = 20.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -291,7 +299,7 @@ fun SongsScreen(
                 LazyVerticalGrid(
                     columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                    contentPadding = PaddingValues(top = 4.dp, bottom = 20.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
@@ -471,7 +479,7 @@ fun SongsScreen(
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(bottom = 120.dp),
+                        .padding(bottom = 20.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
@@ -486,7 +494,7 @@ fun SongsScreen(
             } else {
                 LazyColumn(
                     modifier = Modifier.fillMaxSize(),
-                    contentPadding = PaddingValues(top = 2.dp, bottom = 120.dp),
+                    contentPadding = PaddingValues(top = 2.dp, bottom = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp)
                 ) {
                     items(

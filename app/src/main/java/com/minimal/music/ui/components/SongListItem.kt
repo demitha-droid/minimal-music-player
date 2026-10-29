@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
@@ -92,6 +93,7 @@ fun SongListItem(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(3.dp),
                         modifier = Modifier
+                            .widthIn(max = 110.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .background(androidx.compose.ui.graphics.Color(0xFF262114))
                             .padding(horizontal = 4.dp, vertical = 1.dp)

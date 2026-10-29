@@ -9,6 +9,7 @@ import com.minimal.music.data.model.Song
 import com.minimal.music.data.repository.MusicRepository
 import com.minimal.music.player.PlaybackManager
 import com.minimal.music.player.PlaybackState
+import com.minimal.music.ui.theme.ThemeMode
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +24,23 @@ import kotlinx.coroutines.launch
 class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = MusicRepository(application)
+    private val prefs = application.getSharedPreferences("minimal_music_prefs", android.content.Context.MODE_PRIVATE)
+
+    private val _themeMode = MutableStateFlow(
+        try {
+            val saved = prefs.getString("theme_mode", ThemeMode.DARK.name) ?: ThemeMode.DARK.name
+            ThemeMode.valueOf(saved)
+        } catch (_: Exception) {
+            ThemeMode.DARK
+        }
+    )
+    val themeMode: StateFlow<ThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: ThemeMode) {
+        _themeMode.value = mode
+        prefs.edit().putString("theme_mode", mode.name).apply()
+    }
+
     val playbackManager = PlaybackManager(
         context = application,
         scope = viewModelScope,
@@ -234,6 +252,15 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             if (_openedFolder.value?.id == folder.id) {
                 _openedFolder.value = null
             }
+            onFinished?.invoke()
+        }
+    }
+
+    fun clearAllAddedFolders(onFinished: (() -> Unit)? = null) {
+        viewModelScope.launch {
+            repository.clearAllAddedFolders()
+            _selectedFolderFilter.value = null
+            _openedFolder.value = null
             onFinished?.invoke()
         }
     }

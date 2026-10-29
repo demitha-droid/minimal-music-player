@@ -120,7 +120,7 @@ fun PlaylistsScreen(
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
             .padding(horizontal = 16.dp),
-        contentPadding = PaddingValues(top = 20.dp, bottom = 120.dp),
+        contentPadding = PaddingValues(top = 20.dp, bottom = 20.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
         item {

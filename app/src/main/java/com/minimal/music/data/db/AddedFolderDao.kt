@@ -44,4 +44,7 @@ interface AddedFolderDao {
 
     @Query("SELECT COUNT(*) FROM added_folders")
     suspend fun getFolderCount(): Int
+
+    @Query("DELETE FROM added_folders")
+    suspend fun clearAll(): Int
 }
