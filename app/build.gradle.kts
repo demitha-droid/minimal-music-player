@@ -86,3 +86,27 @@ dependencies {
 
     debugImplementation(libs.androidx.compose.ui.tooling)
 }
+
+// Automatically copy generated APKs to root project folder on build
+tasks.register("copyApkToRoot") {
+    description = "Copies built APKs to project root folder"
+    group = "build"
+    doNotTrackState("Copies directly into project root directory")
+    doLast {
+        val apkOutputDir = layout.buildDirectory.dir("outputs/apk").get().asFile
+        if (apkOutputDir.exists()) {
+            apkOutputDir.walkTopDown()
+                .filter { it.isFile && it.extension == "apk" }
+                .forEach { apkFile ->
+                    val destination = File(rootDir, apkFile.name)
+                    apkFile.copyTo(destination, overwrite = true)
+                    println("Successfully copied APK to root: ${destination.name} (${destination.length()} bytes)")
+                }
+        }
+    }
+}
+
+tasks.matching { it.name == "assembleDebug" || it.name == "assembleRelease" || it.name == "assemble" }.configureEach {
+    finalizedBy("copyApkToRoot")
+}
+
