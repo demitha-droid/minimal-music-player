@@ -180,15 +180,40 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    val sleepTimerRemainingMs: StateFlow<Long?> = playbackManager.sleepTimerRemainingMs
+    val isSleepTimerEndOfSong: StateFlow<Boolean> = playbackManager.isSleepTimerEndOfSong
+
+    private val _isMiniPlayerDismissed = MutableStateFlow(false)
+    val isMiniPlayerDismissed: StateFlow<Boolean> = _isMiniPlayerDismissed.asStateFlow()
+
+    fun dismissMiniPlayer() {
+        _isMiniPlayerDismissed.value = true
+        playbackManager.pause()
+    }
+
+    fun restoreMiniPlayer() {
+        _isMiniPlayerDismissed.value = false
+    }
+
+    fun startSleepTimer(minutes: Int) = playbackManager.startSleepTimer(minutes)
+    fun startSleepTimerEndOfSong() = playbackManager.startSleepTimerEndOfSong()
+    fun adjustSleepTimer(additionalMinutes: Int) = playbackManager.adjustSleepTimer(additionalMinutes)
+    fun cancelSleepTimer() = playbackManager.cancelSleepTimer()
+
     fun playSong(song: Song, queue: List<Song>? = null) {
+        _isMiniPlayerDismissed.value = false
         playbackManager.playSong(song, queue)
     }
 
     fun playQueue(queue: List<Song>, startIndex: Int = 0) {
+        _isMiniPlayerDismissed.value = false
         playbackManager.playQueue(queue, startIndex)
     }
 
     fun togglePlayPause() {
+        if (_isMiniPlayerDismissed.value) {
+            _isMiniPlayerDismissed.value = false
+        }
         playbackManager.togglePlayPause()
     }
 

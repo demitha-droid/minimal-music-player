@@ -80,13 +80,18 @@ fun MainScreen(viewModel: MusicViewModel) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
+            val isMiniPlayerDismissed by viewModel.isMiniPlayerDismissed.collectAsState()
+            val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsState()
+
             Column {
-                if (playbackState.currentSong != null) {
+                if (playbackState.currentSong != null && !isMiniPlayerDismissed) {
                     MiniPlayerBar(
                         playbackState = playbackState,
                         onPlayPauseClick = { viewModel.togglePlayPause() },
                         onNextClick = { viewModel.skipNext() },
-                        onClick = { showNowPlayingSheet = true }
+                        onClick = { showNowPlayingSheet = true },
+                        onDismiss = { viewModel.dismissMiniPlayer() },
+                        sleepTimerRemainingMs = sleepTimerRemainingMs
                     )
                 }
 

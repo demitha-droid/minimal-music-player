@@ -26,6 +26,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
+import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -44,6 +45,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +65,7 @@ import androidx.compose.ui.unit.sp
 import com.minimal.music.player.PlaybackState
 import com.minimal.music.player.RepeatMode as AppRepeatMode
 import com.minimal.music.ui.components.MinimalArtwork
+import com.minimal.music.ui.components.SleepTimerSheet
 import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.HeartActive
 import com.minimal.music.ui.theme.PrimaryViolet
@@ -86,6 +89,10 @@ fun NowPlayingSheet(
 
     var isUserSeeking by remember { mutableStateOf(false) }
     var seekPositionRatio by remember { mutableFloatStateOf(0f) }
+    var showSleepTimerSheet by remember { mutableStateOf(false) }
+
+    val remainingMs by viewModel.sleepTimerRemainingMs.collectAsState()
+    val isEndOfSong by viewModel.isSleepTimerEndOfSong.collectAsState()
 
     // Vinyl rotation animation when playing
     val infiniteTransition = rememberInfiniteTransition(label = "vinyl")
@@ -352,7 +359,79 @@ fun NowPlayingSheet(
                 }
             }
 
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Bottom Action Row: Sleep Timer & Queue index
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                val isTimerActive = remainingMs != null || isEndOfSong
+
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(if (isTimerActive) Color(0xFF2B2240) else SurfaceElevated)
+                        .border(
+                            1.dp,
+                            if (isTimerActive) PrimaryViolet else SurfaceBorder,
+                            RoundedCornerShape(20.dp)
+                        )
+                        .clickable { showSleepTimerSheet = true }
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Bedtime,
+                        contentDescription = "Sleep Timer",
+                        tint = if (isTimerActive) PrimaryViolet else TextSecondary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = when {
+                            isEndOfSong -> "End of Song"
+                            remainingMs != null -> {
+                                val totalSec = (remainingMs!! / 1000).coerceAtLeast(0)
+                                val m = totalSec / 60
+                                val s = totalSec % 60
+                                "%d:%02d remaining".format(m, s)
+                            }
+                            else -> "Sleep Timer"
+                        },
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = if (isTimerActive) PrimaryViolet else TextSecondary,
+                            fontWeight = if (isTimerActive) FontWeight.Bold else FontWeight.Medium
+                        )
+                    )
+                }
+
+                val queue = playbackState.queue
+                val currentIdx = playbackState.queueIndex
+                if (queue.isNotEmpty()) {
+                    Text(
+                        text = "${currentIdx + 1} / ${queue.size}",
+                        style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
+                    )
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        if (showSleepTimerSheet) {
+            SleepTimerSheet(
+                remainingMs = remainingMs,
+                isEndOfSong = isEndOfSong,
+                onStartTimer = { viewModel.startSleepTimer(it) },
+                onStartEndOfSong = { viewModel.startSleepTimerEndOfSong() },
+                onAdjustTimer = { viewModel.adjustSleepTimer(it) },
+                onCancelTimer = { viewModel.cancelSleepTimer() },
+                onDismiss = { showSleepTimerSheet = false }
+            )
         }
     }
 }

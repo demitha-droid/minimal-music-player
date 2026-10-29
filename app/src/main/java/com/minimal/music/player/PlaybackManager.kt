@@ -38,6 +38,14 @@ class PlaybackManager(
     private var progressJob: Job? = null
     private var currentSongRecordedForPlayCount = false
 
+    // Sleep timer state
+    private var sleepTimerJob: Job? = null
+    private val _sleepTimerRemainingMs = MutableStateFlow<Long?>(null)
+    val sleepTimerRemainingMs: StateFlow<Long?> = _sleepTimerRemainingMs.asStateFlow()
+
+    private val _isSleepTimerEndOfSong = MutableStateFlow(false)
+    val isSleepTimerEndOfSong: StateFlow<Boolean> = _isSleepTimerEndOfSong.asStateFlow()
+
     init {
         initializeController()
     }
@@ -74,7 +82,12 @@ class PlaybackManager(
             when (state) {
                 Player.STATE_ENDED -> {
                     checkAndRecordPlayCount(forced = true)
-                    skipNext()
+                    if (_isSleepTimerEndOfSong.value) {
+                        cancelSleepTimer()
+                        pause()
+                    } else {
+                        skipNext()
+                    }
                 }
                 Player.STATE_READY -> {
                     val duration = mediaController?.duration?.coerceAtLeast(0L) ?: 0L
@@ -85,6 +98,12 @@ class PlaybackManager(
         }
 
         override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+            if (_isSleepTimerEndOfSong.value && reason == Player.MEDIA_ITEM_TRANSITION_REASON_AUTO) {
+                cancelSleepTimer()
+                pause()
+                return
+            }
+
             currentSongRecordedForPlayCount = false
             val controller = mediaController ?: return
             val currentIndex = controller.currentMediaItemIndex
@@ -255,7 +274,67 @@ class PlaybackManager(
         _playbackState.update { it.copy(repeatMode = nextMode) }
     }
 
+    fun pause() {
+        mediaController?.pause()
+    }
+
+    fun stop() {
+        cancelSleepTimer()
+        mediaController?.stop()
+        mediaController?.clearMediaItems()
+        _playbackState.update {
+            it.copy(
+                isPlaying = false,
+                currentSong = null,
+                currentPositionMs = 0L,
+                queue = emptyList()
+            )
+        }
+    }
+
+    // Sleep Timer Controls
+    fun startSleepTimer(minutes: Int) {
+        cancelSleepTimer()
+        if (minutes <= 0) return
+        val totalMs = minutes * 60 * 1000L
+        val targetTime = System.currentTimeMillis() + totalMs
+        _sleepTimerRemainingMs.value = totalMs
+
+        sleepTimerJob = scope.launch(Dispatchers.Main) {
+            while (isActive) {
+                val remaining = (targetTime - System.currentTimeMillis()).coerceAtLeast(0L)
+                _sleepTimerRemainingMs.value = remaining
+                if (remaining <= 0L) {
+                    _sleepTimerRemainingMs.value = null
+                    pause()
+                    break
+                }
+                delay(1000L)
+            }
+        }
+    }
+
+    fun startSleepTimerEndOfSong() {
+        cancelSleepTimer()
+        _isSleepTimerEndOfSong.value = true
+    }
+
+    fun adjustSleepTimer(additionalMinutes: Int) {
+        val currentRemaining = _sleepTimerRemainingMs.value ?: return
+        val newTotal = (currentRemaining + (additionalMinutes * 60 * 1000L)).coerceAtLeast(60 * 1000L)
+        val minutes = (newTotal / (60 * 1000L)).toInt().coerceAtLeast(1)
+        startSleepTimer(minutes)
+    }
+
+    fun cancelSleepTimer() {
+        sleepTimerJob?.cancel()
+        sleepTimerJob = null
+        _sleepTimerRemainingMs.value = null
+        _isSleepTimerEndOfSong.value = false
+    }
+
     fun release() {
+        cancelSleepTimer()
         stopProgressTicker()
         mediaController?.removeListener(playerListener)
         controllerFuture?.let { MediaController.releaseFuture(it) }
