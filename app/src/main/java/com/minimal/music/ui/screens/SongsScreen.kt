@@ -583,24 +583,21 @@ private fun FolderGalleryCard(
                     modifier = Modifier.fillMaxSize()
                 )
 
-                // 3-dots Menu floating top right with backdrop
+                // 3-dots Menu floating top right without circular background
                 Box(
                     modifier = Modifier
                         .align(Alignment.TopEnd)
-                        .padding(4.dp)
+                        .padding(2.dp)
                 ) {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Color.Black.copy(alpha = 0.65f))
+                        modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
                             contentDescription = "Folder options",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
+                            tint = if (folder.artworkUri.isNullOrBlank()) TextPrimary else Color.White,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
 
