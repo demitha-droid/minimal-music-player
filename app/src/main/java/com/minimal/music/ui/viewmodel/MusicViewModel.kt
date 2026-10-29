@@ -227,8 +227,21 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playFolder(folder: AddedFolder, shuffle: Boolean = false) {
-        val folderSongs = allSongs.value.filter {
-            it.folderPath == folder.path || (it.folderName != null && it.folderName == folder.name)
+        val targetPath = folder.path.trimEnd('/', '\\')
+        val folderSongs = allSongs.value.filter { song ->
+            val songPath = song.folderPath?.trimEnd('/', '\\')
+            val pathMatch = songPath != null && (
+                songPath.equals(targetPath, ignoreCase = true) ||
+                songPath.startsWith("$targetPath/", ignoreCase = true) ||
+                songPath.startsWith("$targetPath\\", ignoreCase = true) ||
+                targetPath.startsWith("$songPath/", ignoreCase = true) ||
+                targetPath.startsWith("$songPath\\", ignoreCase = true)
+            )
+            val nameMatch = !song.folderName.isNullOrBlank() &&
+                song.folderName.equals(folder.name, ignoreCase = true)
+            val uriMatch = song.mediaUri.contains(folder.name, ignoreCase = true)
+
+            pathMatch || nameMatch || uriMatch
         }
         if (folderSongs.isNotEmpty()) {
             if (shuffle) {
@@ -287,7 +300,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun playSong(song: Song, queue: List<Song>? = null) {
         _isMiniPlayerDismissed.value = false
-        playbackManager.playSong(song, queue)
+        val effectiveQueue = if (!queue.isNullOrEmpty() && queue.any { it.id == song.id }) {
+            queue
+        } else {
+            allSongs.value.takeIf { list -> list.any { it.id == song.id } } ?: listOf(song)
+        }
+        playbackManager.playSong(song, effectiveQueue)
     }
 
     fun playQueue(queue: List<Song>, startIndex: Int = 0) {
@@ -306,8 +324,8 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         playbackManager.skipNext()
     }
 
-    fun skipPrevious() {
-        playbackManager.skipPrevious()
+    fun skipPrevious(forcePrevious: Boolean = false) {
+        playbackManager.skipPrevious(forcePrevious)
     }
 
     fun seekTo(positionMs: Long) {

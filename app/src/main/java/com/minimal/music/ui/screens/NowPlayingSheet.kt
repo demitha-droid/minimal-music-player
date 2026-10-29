@@ -1,14 +1,18 @@
 package com.minimal.music.ui.screens
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
@@ -54,6 +59,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,11 +67,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 import com.minimal.music.player.PlaybackState
 import com.minimal.music.player.RepeatMode as AppRepeatMode
 import com.minimal.music.ui.components.MinimalArtwork
@@ -98,6 +109,12 @@ fun NowPlayingSheet(
 
     val remainingMs by viewModel.sleepTimerRemainingMs.collectAsState()
     val isEndOfSong by viewModel.isSleepTimerEndOfSong.collectAsState()
+
+    // Smooth horizontal swipe gesture to change songs (Left = Next, Right = Previous)
+    val swipeOffsetX = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+    val density = LocalDensity.current
+    val swipeThresholdPx = with(density) { 60.dp.toPx() }
 
     // Vinyl rotation animation when playing
     val infiniteTransition = rememberInfiniteTransition(label = "vinyl")
@@ -164,67 +181,112 @@ fun NowPlayingSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Flat Disc / Album Cover Artwork
-            Box(
-                modifier = Modifier
-                    .sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
-                    .aspectRatio(1f)
-                    .clip(CircleShape)
-                    .background(SurfaceElevated)
-                    .border(1.dp, SurfaceBorder, CircleShape)
-                    .rotate(if (playbackState.isPlaying) rotation else 0f),
-                contentAlignment = Alignment.Center
-            ) {
-                // Subtle flat ring
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize(0.85f)
-                        .border(1.dp, SurfaceBorder.copy(alpha = 0.5f), CircleShape)
-                )
-
-                // Center Label
-                MinimalArtwork(
-                    title = song.title,
-                    size = 100.dp,
-                    shapeRadius = 50.dp
-                )
-
-                // Center Spindle hole
-                Box(
-                    modifier = Modifier
-                        .size(16.dp)
-                        .clip(CircleShape)
-                        .background(BgDark)
-                        .border(1.dp, SurfaceBorder, CircleShape)
-                )
-            }
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // Title & Artist Info
+            // Swipeable Disc + Song Info Area (Swipe Left -> Next Song, Swipe Right -> Previous Song)
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .offset { IntOffset(swipeOffsetX.value.roundToInt(), 0) }
+                    .pointerInput(song.id) {
+                        detectHorizontalDragGestures(
+                            onDragEnd = {
+                                val offset = swipeOffsetX.value
+                                if (offset <= -swipeThresholdPx) {
+                                    // Swiped Left -> Skip to Next Track
+                                    scope.launch {
+                                        swipeOffsetX.animateTo(-500f, tween(120))
+                                        viewModel.skipNext()
+                                        swipeOffsetX.snapTo(500f)
+                                        swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                    }
+                                } else if (offset >= swipeThresholdPx) {
+                                    // Swiped Right -> Skip to Previous Track
+                                    scope.launch {
+                                        swipeOffsetX.animateTo(500f, tween(120))
+                                        viewModel.skipPrevious(forcePrevious = true)
+                                        swipeOffsetX.snapTo(-500f)
+                                        swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                    }
+                                } else {
+                                    scope.launch {
+                                        swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                    }
+                                }
+                            },
+                            onDragCancel = {
+                                scope.launch { swipeOffsetX.animateTo(0f) }
+                            },
+                            onHorizontalDrag = { change, dragAmount ->
+                                change.consume()
+                                scope.launch {
+                                    swipeOffsetX.snapTo(swipeOffsetX.value + dragAmount)
+                                }
+                            }
+                        )
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
-                    text = song.title,
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Text(
-                    text = song.artist,
-                    style = MaterialTheme.typography.titleMedium.copy(
-                        color = TextSecondary,
-                        textAlign = TextAlign.Center
-                    ),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
+                // Flat Disc / Album Cover Artwork
+                Box(
+                    modifier = Modifier
+                        .sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
+                        .aspectRatio(1f)
+                        .clip(CircleShape)
+                        .background(SurfaceElevated)
+                        .border(1.dp, SurfaceBorder, CircleShape)
+                        .rotate(if (playbackState.isPlaying) rotation else 0f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    // Subtle flat ring
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize(0.85f)
+                            .border(1.dp, SurfaceBorder.copy(alpha = 0.5f), CircleShape)
+                    )
+
+                    // Center Label
+                    MinimalArtwork(
+                        title = song.title,
+                        size = 100.dp,
+                        shapeRadius = 50.dp
+                    )
+
+                    // Center Spindle hole
+                    Box(
+                        modifier = Modifier
+                            .size(16.dp)
+                            .clip(CircleShape)
+                            .background(BgDark)
+                            .border(1.dp, SurfaceBorder, CircleShape)
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Title & Artist Info
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = song.title,
+                        style = MaterialTheme.typography.headlineMedium.copy(
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Text(
+                        text = song.artist,
+                        style = MaterialTheme.typography.titleMedium.copy(
+                            color = TextSecondary,
+                            textAlign = TextAlign.Center
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(16.dp))

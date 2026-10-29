@@ -8,6 +8,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -66,41 +67,44 @@ fun MiniPlayerBar(
     onClick: () -> Unit,
     onDismiss: () -> Unit,
     modifier: Modifier = Modifier,
+    onPreviousClick: () -> Unit = {},
     sleepTimerRemainingMs: Long? = null
 ) {
     val song = playbackState.currentSong ?: return
-    val offsetX = remember { Animatable(0f) }
+    val dismissOffsetY = remember { Animatable(0f) }
+    val songSwipeOffsetX = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
     val density = LocalDensity.current
-    val dismissThresholdPx = with(density) { 90.dp.toPx() }
+    val dismissThresholdPx = with(density) { 60.dp.toPx() }
+    val swipeThresholdPx = with(density) { 50.dp.toPx() }
 
     // Reset offset when track changes
     LaunchedEffect(song.id) {
-        offsetX.snapTo(0f)
+        songSwipeOffsetX.snapTo(0f)
+        dismissOffsetY.snapTo(0f)
     }
 
-    val alpha = (1f - (abs(offsetX.value) / (dismissThresholdPx * 2.2f))).coerceIn(0f, 1f)
+    val alpha = (1f - (dismissOffsetY.value / (dismissThresholdPx * 2.5f))).coerceIn(0f, 1f)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .offset { IntOffset(offsetX.value.roundToInt(), 0) }
+            .offset { IntOffset(0, dismissOffsetY.value.roundToInt().coerceAtLeast(0)) }
             .graphicsLayer { this.alpha = alpha }
             .pointerInput(Unit) {
-                detectHorizontalDragGestures(
+                detectVerticalDragGestures(
                     onDragEnd = {
-                        if (abs(offsetX.value) >= dismissThresholdPx) {
-                            val targetOffset = if (offsetX.value > 0) 1400f else -1400f
+                        if (dismissOffsetY.value >= dismissThresholdPx) {
                             scope.launch {
-                                offsetX.animateTo(
-                                    targetValue = targetOffset,
-                                    animationSpec = tween(durationMillis = 180)
+                                dismissOffsetY.animateTo(
+                                    targetValue = 400f,
+                                    animationSpec = tween(durationMillis = 150)
                                 )
                                 onDismiss()
                             }
                         } else {
                             scope.launch {
-                                offsetX.animateTo(
+                                dismissOffsetY.animateTo(
                                     targetValue = 0f,
                                     animationSpec = spring(
                                         dampingRatio = Spring.DampingRatioMediumBouncy,
@@ -112,13 +116,15 @@ fun MiniPlayerBar(
                     },
                     onDragCancel = {
                         scope.launch {
-                            offsetX.animateTo(0f)
+                            dismissOffsetY.animateTo(0f)
                         }
                     },
-                    onHorizontalDrag = { change, dragAmount ->
-                        change.consume()
-                        scope.launch {
-                            offsetX.snapTo(offsetX.value + dragAmount)
+                    onVerticalDrag = { change, dragAmount ->
+                        if (dragAmount > 0 || dismissOffsetY.value > 0) {
+                            change.consume()
+                            scope.launch {
+                                dismissOffsetY.snapTo((dismissOffsetY.value + dragAmount).coerceAtLeast(0f))
+                            }
                         }
                     }
                 )
@@ -146,10 +152,48 @@ fun MiniPlayerBar(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Tapping artwork and song info expands the player
+                // Song Info Row: Tap to expand, Swipe left/right to change songs!
                 Row(
                     modifier = Modifier
                         .weight(1f)
+                        .offset { IntOffset(songSwipeOffsetX.value.roundToInt(), 0) }
+                        .pointerInput(song.id) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    val offset = songSwipeOffsetX.value
+                                    if (offset <= -swipeThresholdPx) {
+                                        // Swiped Left -> Skip to Next Track
+                                        scope.launch {
+                                            songSwipeOffsetX.animateTo(-250f, tween(100))
+                                            onNextClick()
+                                            songSwipeOffsetX.snapTo(250f)
+                                            songSwipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                        }
+                                    } else if (offset >= swipeThresholdPx) {
+                                        // Swiped Right -> Skip to Previous Track
+                                        scope.launch {
+                                            songSwipeOffsetX.animateTo(250f, tween(100))
+                                            onPreviousClick()
+                                            songSwipeOffsetX.snapTo(-250f)
+                                            songSwipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                        }
+                                    } else {
+                                        scope.launch {
+                                            songSwipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                        }
+                                    }
+                                },
+                                onDragCancel = {
+                                    scope.launch { songSwipeOffsetX.animateTo(0f) }
+                                },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
+                                    scope.launch {
+                                        songSwipeOffsetX.snapTo(songSwipeOffsetX.value + dragAmount)
+                                    }
+                                }
+                            )
+                        }
                         .clickable { onClick() },
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -214,6 +258,7 @@ fun MiniPlayerBar(
                     }
                 }
 
+                // Explicit Play/Pause & Next Buttons - completely outside gesture scopes
                 IconButton(
                     onClick = onPlayPauseClick,
                     modifier = Modifier

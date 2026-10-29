@@ -90,6 +90,7 @@ fun MainScreen(viewModel: MusicViewModel) {
                         playbackState = playbackState,
                         onPlayPauseClick = { viewModel.togglePlayPause() },
                         onNextClick = { viewModel.skipNext() },
+                        onPreviousClick = { viewModel.skipPrevious(forcePrevious = true) },
                         onClick = { showNowPlayingSheet = true },
                         onDismiss = { viewModel.dismissMiniPlayer() },
                         sleepTimerRemainingMs = sleepTimerRemainingMs

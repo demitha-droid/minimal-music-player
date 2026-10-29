@@ -109,8 +109,17 @@ class PlaybackManager(
             val currentIndex = controller.currentMediaItemIndex
             val queue = _playbackState.value.queue
 
-            val currentSong = if (currentIndex in queue.indices) {
-                queue[currentIndex]
+            // Match by mediaId first to guarantee accurate queue index
+            val songId = mediaItem?.mediaId?.toLongOrNull()
+            val matchedIndex = if (songId != null) {
+                queue.indexOfFirst { it.id == songId }
+            } else {
+                -1
+            }
+            val resolvedIndex = if (matchedIndex >= 0) matchedIndex else currentIndex
+
+            val currentSong = if (resolvedIndex in queue.indices) {
+                queue[resolvedIndex]
             } else {
                 null
             }
@@ -118,7 +127,7 @@ class PlaybackManager(
             _playbackState.update {
                 it.copy(
                     currentSong = currentSong,
-                    queueIndex = currentIndex,
+                    queueIndex = resolvedIndex,
                     currentPositionMs = 0L,
                     durationMs = controller.duration.coerceAtLeast(0L)
                 )
@@ -201,12 +210,13 @@ class PlaybackManager(
     }
 
     fun playSong(song: Song, contextQueue: List<Song>? = null) {
-        val queue = if (contextQueue != null && contextQueue.contains(song)) {
+        val queue = if (contextQueue != null && contextQueue.any { it.id == song.id }) {
             contextQueue
         } else {
-            listOf(song)
+            val currentQ = _playbackState.value.queue
+            if (currentQ.any { it.id == song.id }) currentQ else listOf(song)
         }
-        val index = queue.indexOf(song).coerceAtLeast(0)
+        val index = queue.indexOfFirst { it.id == song.id }.coerceAtLeast(0)
         playQueue(queue, index)
     }
 
@@ -227,25 +237,91 @@ class PlaybackManager(
 
     fun skipNext() {
         val controller = mediaController ?: return
-        if (controller.hasNextMediaItem()) {
-            controller.seekToNextMediaItem()
-        } else {
-            val state = _playbackState.value
-            if (state.repeatMode == RepeatMode.ALL && state.queue.isNotEmpty()) {
-                controller.seekTo(0, 0L)
-                controller.play()
+        val state = _playbackState.value
+        val queue = state.queue
+        if (queue.isEmpty()) return
+
+        val currentIndex = state.queueIndex.coerceIn(0, queue.lastIndex)
+        val nextIndex = if (state.isShuffle) {
+            if (queue.size > 1) {
+                val others = queue.indices.filter { it != currentIndex }
+                others.random()
+            } else {
+                0
             }
+        } else {
+            if (currentIndex + 1 < queue.size) {
+                currentIndex + 1
+            } else {
+                0 // Loop back to start
+            }
+        }
+
+        val nextSong = queue[nextIndex]
+        currentSongRecordedForPlayCount = false
+
+        _playbackState.update {
+            it.copy(
+                currentSong = nextSong,
+                queueIndex = nextIndex,
+                currentPositionMs = 0L,
+                isPlaying = true
+            )
+        }
+
+        if (nextIndex < controller.mediaItemCount) {
+            controller.seekTo(nextIndex, 0L)
+            controller.play()
+        } else {
+            playQueue(queue, nextIndex)
         }
     }
 
-    fun skipPrevious() {
+    fun skipPrevious(forcePrevious: Boolean = false) {
         val controller = mediaController ?: return
-        if (controller.currentPosition > 3000L) {
+        val state = _playbackState.value
+        val queue = state.queue
+        if (queue.isEmpty()) return
+
+        if (!forcePrevious && controller.currentPosition > 3000L) {
             controller.seekTo(0L)
-        } else if (controller.hasPreviousMediaItem()) {
-            controller.seekToPreviousMediaItem()
+            _playbackState.update { it.copy(currentPositionMs = 0L) }
+            return
+        }
+
+        val currentIndex = state.queueIndex.coerceIn(0, queue.lastIndex)
+        val prevIndex = if (state.isShuffle) {
+            if (queue.size > 1) {
+                val others = queue.indices.filter { it != currentIndex }
+                others.random()
+            } else {
+                0
+            }
         } else {
-            controller.seekTo(0L)
+            if (currentIndex - 1 >= 0) {
+                currentIndex - 1
+            } else {
+                queue.lastIndex
+            }
+        }
+
+        val prevSong = queue[prevIndex]
+        currentSongRecordedForPlayCount = false
+
+        _playbackState.update {
+            it.copy(
+                currentSong = prevSong,
+                queueIndex = prevIndex,
+                currentPositionMs = 0L,
+                isPlaying = true
+            )
+        }
+
+        if (prevIndex < controller.mediaItemCount) {
+            controller.seekTo(prevIndex, 0L)
+            controller.play()
+        } else {
+            playQueue(queue, prevIndex)
         }
     }
 
