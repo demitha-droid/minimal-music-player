@@ -1,13 +1,17 @@
 package com.minimal.music.ui.components
 
+import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.net.Uri
+import android.util.LruCache
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -44,6 +48,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -95,6 +102,77 @@ fun MinimalArtwork(
     }
 }
 
+/**
+ * High-performance LRU memory cache for downsampled cover art.
+ * Eliminates repeated disk reads and prevents Garbage Collector pauses.
+ */
+object ImageCacheManager {
+    private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
+    private val cacheSize = (maxMemory / 8).coerceIn(1024 * 8, 1024 * 32)
+
+    private val lruCache = object : LruCache<String, Bitmap>(cacheSize) {
+        override fun sizeOf(key: String, bitmap: Bitmap): Int {
+            return bitmap.byteCount / 1024
+        }
+    }
+
+    fun get(key: String): Bitmap? = lruCache.get(key)
+    fun put(key: String, bitmap: Bitmap) {
+        lruCache.put(key, bitmap)
+    }
+
+    fun decodeSampledBitmap(context: Context, uriString: String, reqWidth: Int = 360, reqHeight: Int = 360): Bitmap? {
+        val cached = get(uriString)
+        if (cached != null) return cached
+
+        try {
+            val options = BitmapFactory.Options().apply {
+                inJustDecodeBounds = true
+            }
+
+            if (uriString.startsWith("content://")) {
+                context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
+                    BitmapFactory.decodeStream(it, null, options)
+                }
+            } else {
+                BitmapFactory.decodeFile(uriString, options)
+            }
+
+            options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
+            options.inJustDecodeBounds = false
+            options.inPreferredConfig = Bitmap.Config.RGB_565
+
+            val bitmap = if (uriString.startsWith("content://")) {
+                context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
+                    BitmapFactory.decodeStream(it, null, options)
+                }
+            } else {
+                BitmapFactory.decodeFile(uriString, options)
+            }
+
+            if (bitmap != null) {
+                put(uriString, bitmap)
+            }
+            return bitmap
+        } catch (_: Throwable) {
+            return null
+        }
+    }
+
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val (height: Int, width: Int) = options.outHeight to options.outWidth
+        var inSampleSize = 1
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight: Int = height / 2
+            val halfWidth: Int = width / 2
+            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
+    }
+}
+
 @Composable
 fun FolderCoverImage(
     artworkUri: String?,
@@ -105,28 +183,18 @@ fun FolderCoverImage(
     contentScale: ContentScale = ContentScale.Crop
 ) {
     val context = LocalContext.current
-    var bitmap by remember(artworkUri) { mutableStateOf<ImageBitmap?>(null) }
+    var bitmap by remember(artworkUri) {
+        mutableStateOf(artworkUri?.let { ImageCacheManager.get(it)?.asImageBitmap() })
+    }
 
     LaunchedEffect(artworkUri) {
         if (!artworkUri.isNullOrBlank()) {
-            withContext(Dispatchers.IO) {
-                try {
-                    val file = File(artworkUri)
-                    if (file.exists() && file.length() > 0) {
-                        val bmp = BitmapFactory.decodeFile(file.absolutePath)
-                        if (bmp != null) {
-                            bitmap = bmp.asImageBitmap()
-                        }
-                    } else if (artworkUri.startsWith("content://")) {
-                        context.contentResolver.openInputStream(Uri.parse(artworkUri))?.use { stream ->
-                            val bmp = BitmapFactory.decodeStream(stream)
-                            if (bmp != null) {
-                                bitmap = bmp.asImageBitmap()
-                            }
-                        }
+            if (bitmap == null) {
+                withContext(Dispatchers.IO) {
+                    val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri)
+                    if (bmp != null) {
+                        bitmap = bmp.asImageBitmap()
                     }
-                } catch (_: Exception) {
-                    bitmap = null
                 }
             }
         } else {
@@ -159,6 +227,7 @@ fun FolderCoverImage(
 fun EqualizerIndicator(
     modifier: Modifier = Modifier
 ) {
+    val barColor = EqualizerGreen
     val infiniteTransition = rememberInfiniteTransition(label = "eq")
     val h1 by infiniteTransition.animateFloat(
         initialValue = 4f,
@@ -188,34 +257,28 @@ fun EqualizerIndicator(
         label = "h3"
     )
 
-    Row(
+    Canvas(
         modifier = modifier
+            .width(16.dp)
             .height(20.dp)
-            .width(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.Bottom
     ) {
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height(h1.dp)
-                .clip(CircleShape)
-                .background(EqualizerGreen)
-        )
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height(h2.dp)
-                .clip(CircleShape)
-                .background(EqualizerGreen)
-        )
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .height(h3.dp)
-                .clip(CircleShape)
-                .background(EqualizerGreen)
-        )
+        val barWidth = 3.dp.toPx()
+        val spacing = 2.dp.toPx()
+        val cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f)
+        val maxHeight = this.size.height
+
+        val heights = listOf(h1.dp.toPx(), h2.dp.toPx(), h3.dp.toPx())
+        for (i in 0..2) {
+            val barHeight = heights[i].coerceIn(2f, maxHeight)
+            val left = i * (barWidth + spacing)
+            val top = maxHeight - barHeight
+            drawRoundRect(
+                color = barColor,
+                topLeft = Offset(left, top),
+                size = Size(barWidth, barHeight),
+                cornerRadius = cornerRadius
+            )
+        }
     }
 }
 

@@ -67,6 +67,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -233,7 +234,9 @@ fun NowPlayingSheet(
                         .clip(CircleShape)
                         .background(SurfaceElevated)
                         .border(1.dp, SurfaceBorder, CircleShape)
-                        .rotate(if (playbackState.isPlaying) rotation else 0f),
+                        .graphicsLayer {
+                            rotationZ = if (playbackState.isPlaying) rotation else 0f
+                        },
                     contentAlignment = Alignment.Center
                 ) {
                     // Subtle flat ring

@@ -82,6 +82,8 @@ import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
 import com.minimal.music.ui.theme.TextSecondary
 import com.minimal.music.ui.viewmodel.MusicViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @Composable
@@ -95,7 +97,12 @@ fun SongsScreen(
     val addedFolders by viewModel.addedFolders.collectAsState()
     val openedFolder by viewModel.openedFolder.collectAsState()
     val searchQuery by viewModel.searchQuery.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
+    val currentSongId by remember(viewModel) {
+        viewModel.playbackState.map { it.currentSong?.id }.distinctUntilChanged()
+    }.collectAsState(initial = null)
+    val isPlaying by remember(viewModel) {
+        viewModel.playbackState.map { it.isPlaying }.distinctUntilChanged()
+    }.collectAsState(initial = false)
     val themeMode by viewModel.themeMode.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -210,10 +217,12 @@ fun SongsScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            val filteredFolders = if (searchQuery.isBlank()) {
-                addedFolders
-            } else {
-                addedFolders.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
+            val filteredFolders = remember(addedFolders, searchQuery) {
+                if (searchQuery.isBlank()) {
+                    addedFolders
+                } else {
+                    addedFolders.filter { it.name.contains(searchQuery.trim(), ignoreCase = true) }
+                }
             }
 
             if (addedFolders.isEmpty()) {
@@ -351,32 +360,36 @@ fun SongsScreen(
             // FOLDER DETAIL VIEW: DISPLAY ONLY SONGS INSIDE THIS SELECTED FOLDER
             // =========================================================================
             val currentFolder = openedFolder!!
-            val folderSongs = allSongs.filter { song ->
-                val songPath = song.folderPath?.trimEnd('/', '\\')
+            val folderSongs = remember(allSongs, currentFolder) {
                 val targetPath = currentFolder.path.trimEnd('/', '\\')
+                allSongs.filter { song ->
+                    val songPath = song.folderPath?.trimEnd('/', '\\')
+                    val pathMatch = songPath != null && (
+                        songPath.equals(targetPath, ignoreCase = true) ||
+                        songPath.startsWith("$targetPath/", ignoreCase = true) ||
+                        songPath.startsWith("$targetPath\\", ignoreCase = true) ||
+                        targetPath.startsWith("$songPath/", ignoreCase = true) ||
+                        targetPath.startsWith("$songPath\\", ignoreCase = true)
+                    )
 
-                val pathMatch = songPath != null && (
-                    songPath.equals(targetPath, ignoreCase = true) ||
-                    songPath.startsWith("$targetPath/", ignoreCase = true) ||
-                    songPath.startsWith("$targetPath\\", ignoreCase = true) ||
-                    targetPath.startsWith("$songPath/", ignoreCase = true) ||
-                    targetPath.startsWith("$songPath\\", ignoreCase = true)
-                )
+                    val nameMatch = !song.folderName.isNullOrBlank() &&
+                        song.folderName.equals(currentFolder.name, ignoreCase = true)
 
-                val nameMatch = !song.folderName.isNullOrBlank() &&
-                    song.folderName.equals(currentFolder.name, ignoreCase = true)
+                    val uriMatch = song.mediaUri.contains(currentFolder.name, ignoreCase = true)
 
-                val uriMatch = song.mediaUri.contains(currentFolder.name, ignoreCase = true)
-
-                pathMatch || nameMatch || uriMatch
+                    pathMatch || nameMatch || uriMatch
+                }
             }
 
-            val displayFolderSongs = if (searchQuery.isBlank()) {
-                folderSongs
-            } else {
-                folderSongs.filter {
-                    it.title.contains(searchQuery.trim(), ignoreCase = true) ||
-                        it.artist.contains(searchQuery.trim(), ignoreCase = true)
+            val displayFolderSongs = remember(folderSongs, searchQuery) {
+                if (searchQuery.isBlank()) {
+                    folderSongs
+                } else {
+                    val query = searchQuery.trim()
+                    folderSongs.filter {
+                        it.title.contains(query, ignoreCase = true) ||
+                            it.artist.contains(query, ignoreCase = true)
+                    }
                 }
             }
 
@@ -504,8 +517,8 @@ fun SongsScreen(
                     ) { song ->
                         SongListItem(
                             song = song,
-                            isPlaying = playbackState.isPlaying,
-                            isCurrentSong = playbackState.currentSong?.id == song.id,
+                            isPlaying = isPlaying,
+                            isCurrentSong = currentSongId == song.id,
                             onSongClick = { viewModel.playSong(song, displayFolderSongs) },
                             onFavoriteToggle = { viewModel.toggleFavorite(song) },
                             onAddToPlaylistClick = { onSongSelectedForPlaylist(song) },

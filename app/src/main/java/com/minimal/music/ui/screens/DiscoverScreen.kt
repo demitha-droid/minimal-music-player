@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -58,6 +59,8 @@ import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
 import com.minimal.music.ui.theme.TextSecondary
 import com.minimal.music.ui.viewmodel.MusicViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun DiscoverScreen(
@@ -68,7 +71,12 @@ fun DiscoverScreen(
     val mostPopular by viewModel.mostPopular.collectAsState()
     val mostPlayed by viewModel.mostPlayed.collectAsState()
     val allSongs by viewModel.allSongs.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
+    val currentSongId by remember(viewModel) {
+        viewModel.playbackState.map { it.currentSong?.id }.distinctUntilChanged()
+    }.collectAsState(initial = null)
+    val isPlaying by remember(viewModel) {
+        viewModel.playbackState.map { it.isPlaying }.distinctUntilChanged()
+    }.collectAsState(initial = false)
     val themeMode by viewModel.themeMode.collectAsState()
 
     LazyColumn(
@@ -160,8 +168,8 @@ fun DiscoverScreen(
                         PopularSongCard(
                             rank = index + 1,
                             song = song,
-                            isCurrentSong = playbackState.currentSong?.id == song.id,
-                            isPlaying = playbackState.isPlaying,
+                            isCurrentSong = currentSongId == song.id,
+                            isPlaying = isPlaying,
                             onClick = { viewModel.playSong(song, mostPopular) }
                         )
                     }
@@ -213,8 +221,8 @@ fun DiscoverScreen(
                         mostPlayed.take(5).forEach { song ->
                             SongListItem(
                                 song = song,
-                                isPlaying = playbackState.isPlaying,
-                                isCurrentSong = playbackState.currentSong?.id == song.id,
+                                isPlaying = isPlaying,
+                                isCurrentSong = currentSongId == song.id,
                                 onSongClick = { viewModel.playSong(song, mostPlayed) },
                                 onFavoriteToggle = { viewModel.toggleFavorite(song) },
                                 onAddToPlaylistClick = { onSongSelectedForPlaylist(song) },

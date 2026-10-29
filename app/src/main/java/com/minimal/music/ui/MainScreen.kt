@@ -58,6 +58,8 @@ import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
 import com.minimal.music.ui.theme.TextSecondary
 import com.minimal.music.ui.viewmodel.MusicViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -69,7 +71,6 @@ fun MainScreen(viewModel: MusicViewModel) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    val playbackState by viewModel.playbackState.collectAsState()
     val playlists by viewModel.playlists.collectAsState()
     val favorites by viewModel.favorites.collectAsState()
     val mostPlayed by viewModel.mostPlayed.collectAsState()
@@ -81,21 +82,11 @@ fun MainScreen(viewModel: MusicViewModel) {
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
-            val isMiniPlayerDismissed by viewModel.isMiniPlayerDismissed.collectAsState()
-            val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsState()
-
             Column {
-                if (playbackState.currentSong != null && !isMiniPlayerDismissed) {
-                    MiniPlayerBar(
-                        playbackState = playbackState,
-                        onPlayPauseClick = { viewModel.togglePlayPause() },
-                        onNextClick = { viewModel.skipNext() },
-                        onPreviousClick = { viewModel.skipPrevious(forcePrevious = true) },
-                        onClick = { showNowPlayingSheet = true },
-                        onDismiss = { viewModel.dismissMiniPlayer() },
-                        sleepTimerRemainingMs = sleepTimerRemainingMs
-                    )
-                }
+                MiniPlayerSection(
+                    viewModel = viewModel,
+                    onExpand = { showNowPlayingSheet = true }
+                )
 
                 MinimalBottomNavBar(
                     currentRoute = currentRoute,
@@ -188,9 +179,8 @@ fun MainScreen(viewModel: MusicViewModel) {
     }
 
     // Now Playing Modal Bottom Sheet
-    if (showNowPlayingSheet && playbackState.currentSong != null) {
-        NowPlayingSheet(
-            playbackState = playbackState,
+    if (showNowPlayingSheet) {
+        NowPlayingSheetWrapper(
             viewModel = viewModel,
             onDismiss = { showNowPlayingSheet = false }
         )
@@ -263,5 +253,42 @@ fun MainScreen(viewModel: MusicViewModel) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MiniPlayerSection(
+    viewModel: MusicViewModel,
+    onExpand: () -> Unit
+) {
+    val playbackState by viewModel.playbackState.collectAsState()
+    val isMiniPlayerDismissed by viewModel.isMiniPlayerDismissed.collectAsState()
+    val sleepTimerRemainingMs by viewModel.sleepTimerRemainingMs.collectAsState()
+
+    if (playbackState.currentSong != null && !isMiniPlayerDismissed) {
+        MiniPlayerBar(
+            playbackState = playbackState,
+            onPlayPauseClick = { viewModel.togglePlayPause() },
+            onNextClick = { viewModel.skipNext() },
+            onPreviousClick = { viewModel.skipPrevious(forcePrevious = true) },
+            onClick = onExpand,
+            onDismiss = { viewModel.dismissMiniPlayer() },
+            sleepTimerRemainingMs = sleepTimerRemainingMs
+        )
+    }
+}
+
+@Composable
+private fun NowPlayingSheetWrapper(
+    viewModel: MusicViewModel,
+    onDismiss: () -> Unit
+) {
+    val playbackState by viewModel.playbackState.collectAsState()
+    if (playbackState.currentSong != null) {
+        NowPlayingSheet(
+            playbackState = playbackState,
+            viewModel = viewModel,
+            onDismiss = onDismiss
+        )
     }
 }

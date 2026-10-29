@@ -72,6 +72,8 @@ import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
 import com.minimal.music.ui.theme.TextSecondary
 import com.minimal.music.ui.viewmodel.MusicViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -85,7 +87,12 @@ fun FoldersScreen(
     val currentDir by viewModel.currentDirectory.collectAsState()
     val directoryItems by viewModel.directoryItems.collectAsState()
     val isLoading by viewModel.isLoadingDirectory.collectAsState()
-    val playbackState by viewModel.playbackState.collectAsState()
+    val currentSongUri by remember(viewModel) {
+        viewModel.playbackState.map { it.currentSong?.mediaUri }.distinctUntilChanged()
+    }.collectAsState(initial = null)
+    val isPlaying by remember(viewModel) {
+        viewModel.playbackState.map { it.isPlaying }.distinctUntilChanged()
+    }.collectAsState(initial = false)
     val commonRoots = viewModel.commonRoots
     val scope = rememberCoroutineScope()
 
@@ -339,10 +346,10 @@ fun FoldersScreen(
                             )
                         }
                         is FileExplorerItem.Audio -> {
-                            val isCurrentSong = playbackState.currentSong?.mediaUri == item.song.mediaUri
+                            val isCurrentSong = currentSongUri == item.song.mediaUri
                             AudioFileRow(
                                 item = item,
-                                isPlaying = playbackState.isPlaying,
+                                isPlaying = isPlaying,
                                 isCurrentSong = isCurrentSong,
                                 onPlay = {
                                     val contextSongs = audioItemsInCurrentDir.map { it.song }

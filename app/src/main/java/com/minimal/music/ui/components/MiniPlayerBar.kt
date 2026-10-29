@@ -84,13 +84,13 @@ fun MiniPlayerBar(
         dismissOffsetY.snapTo(0f)
     }
 
-    val alpha = (1f - (dismissOffsetY.value / (dismissThresholdPx * 2.5f))).coerceIn(0f, 1f)
-
     Box(
         modifier = modifier
             .fillMaxWidth()
             .offset { IntOffset(0, dismissOffsetY.value.roundToInt().coerceAtLeast(0)) }
-            .graphicsLayer { this.alpha = alpha }
+            .graphicsLayer {
+                this.alpha = (1f - (dismissOffsetY.value / (dismissThresholdPx * 2.5f))).coerceIn(0f, 1f)
+            }
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
                     onDragEnd = {

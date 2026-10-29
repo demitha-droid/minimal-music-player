@@ -30,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,6 +48,8 @@ import com.minimal.music.ui.theme.TextMuted
 import com.minimal.music.ui.theme.TextPrimary
 import com.minimal.music.ui.theme.TextSecondary
 import com.minimal.music.ui.viewmodel.MusicViewModel
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 
 @Composable
 fun PlaylistDetailScreen(
@@ -57,7 +60,12 @@ fun PlaylistDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val playbackState by viewModel.playbackState.collectAsState()
+    val currentSongId by remember(viewModel) {
+        viewModel.playbackState.map { it.currentSong?.id }.distinctUntilChanged()
+    }.collectAsState(initial = null)
+    val isPlaying by remember(viewModel) {
+        viewModel.playbackState.map { it.isPlaying }.distinctUntilChanged()
+    }.collectAsState(initial = false)
 
     Column(
         modifier = modifier
@@ -165,8 +173,8 @@ fun PlaylistDetailScreen(
                 items(songs, key = { it.id }) { song ->
                     SongListItem(
                         song = song,
-                        isPlaying = playbackState.isPlaying,
-                        isCurrentSong = playbackState.currentSong?.id == song.id,
+                        isPlaying = isPlaying,
+                        isCurrentSong = currentSongId == song.id,
                         onSongClick = { viewModel.playSong(song, songs) },
                         onFavoriteToggle = { viewModel.toggleFavorite(song) },
                         onRemoveFromPlaylistClick = if (playlistId != null) {
