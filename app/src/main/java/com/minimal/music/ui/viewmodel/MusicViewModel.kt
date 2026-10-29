@@ -47,6 +47,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     val playlists: StateFlow<List<Playlist>> = repository.playlists
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val addedFolders: StateFlow<List<com.minimal.music.data.model.AddedFolder>> = repository.addedFolders
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    private val _selectedFolderFilter = MutableStateFlow<com.minimal.music.data.model.AddedFolder?>(null)
+    val selectedFolderFilter: StateFlow<com.minimal.music.data.model.AddedFolder?> = _selectedFolderFilter.asStateFlow()
+
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
@@ -137,6 +143,41 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     fun onSearchQueryChanged(query: String) {
         _searchQuery.value = query
+    }
+
+    fun setFolderFilter(folder: com.minimal.music.data.model.AddedFolder?) {
+        _selectedFolderFilter.value = if (_selectedFolderFilter.value?.id == folder?.id && folder != null) {
+            null // toggle off if tapped again
+        } else {
+            folder
+        }
+    }
+
+    fun playFolder(folder: com.minimal.music.data.model.AddedFolder, shuffle: Boolean = false) {
+        val folderSongs = allSongs.value.filter {
+            it.folderPath == folder.path || (it.folderName != null && it.folderName == folder.name)
+        }
+        if (folderSongs.isNotEmpty()) {
+            if (shuffle) {
+                playQueue(folderSongs.shuffled(), 0)
+            } else {
+                playQueue(folderSongs, 0)
+            }
+        }
+    }
+
+    fun removeAddedFolder(
+        folder: com.minimal.music.data.model.AddedFolder,
+        deleteSongs: Boolean = true,
+        onFinished: (() -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            repository.deleteAddedFolder(folder.id, folder.path, deleteSongs)
+            if (_selectedFolderFilter.value?.id == folder.id) {
+                _selectedFolderFilter.value = null
+            }
+            onFinished?.invoke()
+        }
     }
 
     fun playSong(song: Song, queue: List<Song>? = null) {

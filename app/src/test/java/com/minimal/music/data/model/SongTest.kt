@@ -57,4 +57,46 @@ class SongTest {
         val updated = song.copy(isFavorite = true)
         assertTrue(updated.isFavorite)
     }
+
+    @Test
+    fun testSongFolderProperties() {
+        val song = Song(
+            id = 5L,
+            title = "Folder Track",
+            artist = "Local Artist",
+            mediaUri = "file:///storage/emulated/0/Music/Rock/track.mp3",
+            folderName = "Rock",
+            folderPath = "/storage/emulated/0/Music/Rock"
+        )
+        assertEquals("Rock", song.folderName)
+        assertEquals("/storage/emulated/0/Music/Rock", song.folderPath)
+    }
+
+    @Test
+    fun testFolderSongsPrioritizedOverStandardSongs() {
+        val nonFolderSong = Song(
+            id = 1L,
+            title = "A Non Folder Song",
+            artist = "Artist A",
+            mediaUri = "https://example.com/a.mp3"
+        )
+        val folderSong = Song(
+            id = 2L,
+            title = "Z Folder Song",
+            artist = "Artist Z",
+            mediaUri = "file:///storage/emulated/0/Music/Rock/z.mp3",
+            folderName = "Rock",
+            folderPath = "/storage/emulated/0/Music/Rock"
+        )
+
+        val list = listOf(nonFolderSong, folderSong)
+        val sorted = list.sortedWith(
+            compareBy<Song> { if (it.folderPath.isNullOrBlank()) 1 else 0 }
+                .thenBy { it.folderName ?: "" }
+                .thenBy { it.title }
+        )
+
+        assertEquals("Z Folder Song", sorted[0].title)
+        assertEquals("A Non Folder Song", sorted[1].title)
+    }
 }

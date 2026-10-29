@@ -10,7 +10,13 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SongDao {
 
-    @Query("SELECT * FROM songs ORDER BY title COLLATE NOCASE ASC")
+    @Query("""
+        SELECT * FROM songs 
+        ORDER BY 
+            CASE WHEN folder_path IS NOT NULL AND folder_path != '' THEN 0 ELSE 1 END,
+            CASE WHEN folder_name IS NOT NULL THEN folder_name ELSE '' END COLLATE NOCASE ASC,
+            title COLLATE NOCASE ASC
+    """)
     fun getAllSongsFlow(): Flow<List<SongEntity>>
 
     @Query("SELECT * FROM songs WHERE is_favorite = 1 ORDER BY title COLLATE NOCASE ASC")
@@ -22,8 +28,29 @@ interface SongDao {
     @Query("SELECT * FROM songs ORDER BY popularity_score DESC, play_count DESC LIMIT :limit")
     fun getMostPopularFlow(limit: Int = 30): Flow<List<SongEntity>>
 
-    @Query("SELECT * FROM songs WHERE title LIKE '%' || :query || '%' OR artist LIKE '%' || :query || '%' ORDER BY title COLLATE NOCASE ASC")
+    @Query("""
+        SELECT * FROM songs 
+        WHERE title LIKE '%' || :query || '%' 
+           OR artist LIKE '%' || :query || '%' 
+           OR album LIKE '%' || :query || '%'
+           OR folder_name LIKE '%' || :query || '%'
+        ORDER BY 
+            CASE WHEN folder_path IS NOT NULL AND folder_path != '' THEN 0 ELSE 1 END,
+            title COLLATE NOCASE ASC
+    """)
     fun searchSongsFlow(query: String): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE folder_path = :folderPath ORDER BY title COLLATE NOCASE ASC")
+    fun getSongsByFolderPathFlow(folderPath: String): Flow<List<SongEntity>>
+
+    @Query("SELECT * FROM songs WHERE folder_path = :folderPath ORDER BY title COLLATE NOCASE ASC")
+    suspend fun getSongsByFolderPath(folderPath: String): List<SongEntity>
+
+    @Query("DELETE FROM songs WHERE folder_path = :folderPath")
+    suspend fun deleteSongsByFolderPath(folderPath: String): Int
+
+    @Query("SELECT * FROM songs")
+    suspend fun getAllSongsList(): List<SongEntity>
 
     @Query("SELECT * FROM songs WHERE id = :id LIMIT 1")
     suspend fun getSongById(id: Long): SongEntity?

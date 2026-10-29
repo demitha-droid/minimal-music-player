@@ -17,7 +17,9 @@ data class SongEntity(
     @ColumnInfo(name = "is_favorite") val isFavorite: Boolean = false,
     @ColumnInfo(name = "play_count") val playCount: Int = 0,
     @ColumnInfo(name = "popularity_score") val popularityScore: Int = 0,
-    @ColumnInfo(name = "date_added") val dateAdded: Long = System.currentTimeMillis()
+    @ColumnInfo(name = "date_added") val dateAdded: Long = System.currentTimeMillis(),
+    @ColumnInfo(name = "folder_name") val folderName: String? = null,
+    @ColumnInfo(name = "folder_path") val folderPath: String? = null
 ) {
     fun toModel(): Song = Song(
         id = id,
@@ -30,7 +32,9 @@ data class SongEntity(
         isFavorite = isFavorite,
         playCount = playCount,
         popularityScore = popularityScore,
-        dateAdded = dateAdded
+        dateAdded = dateAdded,
+        folderName = folderName,
+        folderPath = folderPath
     )
 
     companion object {
@@ -45,7 +49,9 @@ data class SongEntity(
             isFavorite = song.isFavorite,
             playCount = song.playCount,
             popularityScore = song.popularityScore,
-            dateAdded = song.dateAdded
+            dateAdded = song.dateAdded,
+            folderName = song.folderName,
+            folderPath = song.folderPath
         )
     }
 }

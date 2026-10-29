@@ -151,7 +151,9 @@ class FileExplorerHelper(private val context: Context) {
             isFavorite = false,
             playCount = 0,
             popularityScore = 50,
-            dateAdded = file.lastModified()
+            dateAdded = file.lastModified(),
+            folderName = file.parentFile?.name ?: "Storage",
+            folderPath = file.parentFile?.absolutePath ?: file.parent ?: ""
         )
     }
 
@@ -164,7 +166,11 @@ class FileExplorerHelper(private val context: Context) {
                 if (f.isDirectory) {
                     scan(f)
                 } else if (f.extension.lowercase() in audioExtensions) {
-                    songs.add(extractSongFromFile(f))
+                    val song = extractSongFromFile(f).copy(
+                        folderName = directory.name,
+                        folderPath = directory.absolutePath
+                    )
+                    songs.add(song)
                 }
             }
         }
@@ -175,6 +181,8 @@ class FileExplorerHelper(private val context: Context) {
     suspend fun scanTreeUriRecursive(treeUri: Uri): List<Song> = withContext(Dispatchers.IO) {
         val songs = mutableListOf<Song>()
         val documentFile = DocumentFile.fromTreeUri(context, treeUri) ?: return@withContext emptyList()
+        val rootFolderName = documentFile.name ?: "Imported Folder"
+        val rootFolderPath = treeUri.toString()
 
         fun scanDocument(doc: DocumentFile) {
             val children = doc.listFiles()
@@ -185,7 +193,11 @@ class FileExplorerHelper(private val context: Context) {
                     val name = child.name ?: ""
                     val ext = name.substringAfterLast('.', "").lowercase()
                     if (ext in audioExtensions) {
-                        parseSongFromDocumentFile(child)?.let { songs.add(it) }
+                        parseSongFromDocumentFile(
+                            doc = child,
+                            folderName = rootFolderName,
+                            folderPath = rootFolderPath
+                        )?.let { songs.add(it) }
                     }
                 }
             }
@@ -195,11 +207,15 @@ class FileExplorerHelper(private val context: Context) {
         songs
     }
 
-    fun parseSongFromDocumentFile(doc: DocumentFile): Song? {
+    fun parseSongFromDocumentFile(
+        doc: DocumentFile,
+        folderName: String = "Imported Files",
+        folderPath: String = "SAF_FILES"
+    ): Song? {
         val uri = doc.uri
         var title = doc.name?.substringBeforeLast('.') ?: "Unknown Track"
         var artist = "Imported Track"
-        var album = "Imported"
+        var album = folderName
         var durationMs = 0L
 
         val retriever = MediaMetadataRetriever()
@@ -237,7 +253,9 @@ class FileExplorerHelper(private val context: Context) {
             isFavorite = false,
             playCount = 0,
             popularityScore = 50,
-            dateAdded = System.currentTimeMillis()
+            dateAdded = System.currentTimeMillis(),
+            folderName = folderName,
+            folderPath = folderPath
         )
     }
 
@@ -245,7 +263,11 @@ class FileExplorerHelper(private val context: Context) {
         uris.mapNotNull { uri ->
             val doc = DocumentFile.fromSingleUri(context, uri)
             if (doc != null) {
-                parseSongFromDocumentFile(doc)
+                parseSongFromDocumentFile(
+                    doc = doc,
+                    folderName = "Imported Files",
+                    folderPath = "SAF_FILES"
+                )
             } else {
                 null
             }

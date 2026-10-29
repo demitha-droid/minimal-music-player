@@ -11,7 +11,9 @@ data class Song(
     val isFavorite: Boolean = false,
     val playCount: Int = 0,
     val popularityScore: Int = 0,
-    val dateAdded: Long = System.currentTimeMillis()
+    val dateAdded: Long = System.currentTimeMillis(),
+    val folderName: String? = null,
+    val folderPath: String? = null
 ) {
     val formattedDuration: String
         get() {
