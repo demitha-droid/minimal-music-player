@@ -46,6 +46,7 @@ import com.minimal.music.ui.components.MiniPlayerBar
 import com.minimal.music.ui.navigation.MinimalBottomNavBar
 import com.minimal.music.ui.navigation.Screen
 import com.minimal.music.ui.screens.DiscoverScreen
+import com.minimal.music.ui.screens.FoldersScreen
 import com.minimal.music.ui.screens.NowPlayingSheet
 import com.minimal.music.ui.screens.PlaylistDetailScreen
 import com.minimal.music.ui.screens.PlaylistsScreen
@@ -121,6 +122,14 @@ fun MainScreen(viewModel: MusicViewModel) {
 
             composable(Screen.Songs.route) {
                 SongsScreen(
+                    viewModel = viewModel,
+                    snackbarHostState = snackbarHostState,
+                    onSongSelectedForPlaylist = { selectedSongForPlaylist = it }
+                )
+            }
+
+            composable(Screen.Folders.route) {
+                FoldersScreen(
                     viewModel = viewModel,
                     snackbarHostState = snackbarHostState,
                     onSongSelectedForPlaylist = { selectedSongForPlaylist = it }

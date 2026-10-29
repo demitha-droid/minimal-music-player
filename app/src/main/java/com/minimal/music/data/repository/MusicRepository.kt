@@ -23,6 +23,7 @@ class MusicRepository(
     private val songDao = database.songDao()
     private val playlistDao = database.playlistDao()
     private val mediaStoreScanner = MediaStoreScanner(context)
+    val fileExplorerHelper = com.minimal.music.data.source.FileExplorerHelper(context)
 
     val allSongs: Flow<List<Song>> = songDao.getAllSongsFlow()
         .map { entities -> entities.map { it.toModel() } }
@@ -92,6 +93,41 @@ class MusicRepository(
             songDao.insertSongs(entities)
         }
         deviceSongs.size
+    }
+
+    suspend fun addCustomSongs(songs: List<Song>): Int = withContext(Dispatchers.IO) {
+        if (songs.isNotEmpty()) {
+            val entities = songs.map { SongEntity.fromModel(it) }
+            songDao.insertSongs(entities)
+        }
+        songs.size
+    }
+
+    suspend fun addFolderToLibrary(folder: java.io.File): Int = withContext(Dispatchers.IO) {
+        val songs = fileExplorerHelper.scanDirectoryRecursive(folder)
+        if (songs.isNotEmpty()) {
+            val entities = songs.map { SongEntity.fromModel(it) }
+            songDao.insertSongs(entities)
+        }
+        songs.size
+    }
+
+    suspend fun importFromTreeUri(treeUri: android.net.Uri): Int = withContext(Dispatchers.IO) {
+        val songs = fileExplorerHelper.scanTreeUriRecursive(treeUri)
+        if (songs.isNotEmpty()) {
+            val entities = songs.map { SongEntity.fromModel(it) }
+            songDao.insertSongs(entities)
+        }
+        songs.size
+    }
+
+    suspend fun importFilesFromUris(uris: List<android.net.Uri>): Int = withContext(Dispatchers.IO) {
+        val songs = fileExplorerHelper.parseSongsFromUris(uris)
+        if (songs.isNotEmpty()) {
+            val entities = songs.map { SongEntity.fromModel(it) }
+            songDao.insertSongs(entities)
+        }
+        songs.size
     }
 
     suspend fun toggleFavorite(songId: Long, currentFavorite: Boolean) = withContext(Dispatchers.IO) {

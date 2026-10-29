@@ -1,0 +1,536 @@
+package com.minimal.music.ui.screens
+
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.NoteAdd
+import androidx.compose.material.icons.rounded.Add
+import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.Folder
+import androidx.compose.material.icons.rounded.FolderOpen
+import androidx.compose.material.icons.rounded.MoreVert
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.minimal.music.data.model.Song
+import com.minimal.music.data.source.FileExplorerItem
+import com.minimal.music.ui.components.EqualizerIndicator
+import com.minimal.music.ui.theme.PrimaryViolet
+import com.minimal.music.ui.theme.SecondaryCyan
+import com.minimal.music.ui.theme.SurfaceBorder
+import com.minimal.music.ui.theme.SurfaceDark
+import com.minimal.music.ui.theme.SurfaceElevated
+import com.minimal.music.ui.theme.TextMuted
+import com.minimal.music.ui.theme.TextPrimary
+import com.minimal.music.ui.theme.TextSecondary
+import com.minimal.music.ui.viewmodel.MusicViewModel
+import kotlinx.coroutines.launch
+import java.io.File
+
+@Composable
+fun FoldersScreen(
+    viewModel: MusicViewModel,
+    snackbarHostState: SnackbarHostState,
+    onSongSelectedForPlaylist: (Song) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val currentDir by viewModel.currentDirectory.collectAsState()
+    val directoryItems by viewModel.directoryItems.collectAsState()
+    val isLoading by viewModel.isLoadingDirectory.collectAsState()
+    val playbackState by viewModel.playbackState.collectAsState()
+    val commonRoots = viewModel.commonRoots
+    val scope = rememberCoroutineScope()
+
+    // SAF Directory picker
+    val folderPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.importFromTreeUri(uri) { count ->
+                scope.launch {
+                    snackbarHostState.showSnackbar("Imported $count tracks from folder")
+                }
+            }
+        }
+    }
+
+    // SAF Files picker
+    val filesPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.importFilesFromUris(uris) { count ->
+                scope.launch {
+                    snackbarHostState.showSnackbar("Imported $count audio files")
+                }
+            }
+        }
+    }
+
+    val audioItemsInCurrentDir = directoryItems.filterIsInstance<FileExplorerItem.Audio>()
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(MaterialTheme.colorScheme.background)
+            .padding(horizontal = 16.dp)
+    ) {
+        Spacer(modifier = Modifier.height(20.dp))
+
+        // Title and SAF Action Buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Explorer",
+                    style = MaterialTheme.typography.headlineLarge
+                )
+                Text(
+                    text = "Browse & add local folders or files",
+                    style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
+                )
+            }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                // Pick Folder Button
+                IconButton(
+                    onClick = { folderPickerLauncher.launch(null) },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(SurfaceElevated)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.CreateNewFolder,
+                        contentDescription = "Pick folder from storage",
+                        tint = SecondaryCyan,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                // Pick Audio Files Button
+                IconButton(
+                    onClick = { filesPickerLauncher.launch(arrayOf("audio/*")) },
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(PrimaryViolet)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.NoteAdd,
+                        contentDescription = "Pick audio files",
+                        tint = Color.Black,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Quick Root Shortcuts
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            commonRoots.forEach { root ->
+                val isSelected = currentDir?.absolutePath == root.absolutePath
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(if (isSelected) PrimaryViolet else SurfaceElevated)
+                        .clickable { viewModel.navigateTo(root) }
+                        .padding(horizontal = 14.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = root.name.ifEmpty { "Storage" },
+                        style = MaterialTheme.typography.bodySmall.copy(
+                            color = if (isSelected) Color.Black else TextSecondary,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                        )
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Navigation Breadcrumb Bar
+        currentDir?.let { dir ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(SurfaceDark)
+                    .border(1.dp, SurfaceBorder, RoundedCornerShape(12.dp))
+                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                IconButton(
+                    onClick = { viewModel.navigateUp() },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
+                        contentDescription = "Up one directory",
+                        tint = TextPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                Text(
+                    text = dir.name.ifEmpty { dir.path },
+                    style = MaterialTheme.typography.titleMedium.copy(fontSize = 14.sp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+
+                if (audioItemsInCurrentDir.isNotEmpty()) {
+                    Button(
+                        onClick = {
+                            viewModel.addFolderToLibrary(dir) { count ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Added $count songs from '${dir.name}' to library")
+                                }
+                            }
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
+                        shape = RoundedCornerShape(8.dp),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                        modifier = Modifier.height(30.dp)
+                    ) {
+                        Text(
+                            text = "Add All (${audioItemsInCurrentDir.size})",
+                            color = Color.Black,
+                            style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Bold)
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Directory Content List
+        if (isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = PrimaryViolet)
+            }
+        } else if (directoryItems.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = 120.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.FolderOpen,
+                        contentDescription = null,
+                        tint = TextMuted,
+                        modifier = Modifier.size(48.dp)
+                    )
+                    Text(
+                        text = "Folder is empty or has no audio files",
+                        style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
+                    )
+                    Text(
+                        text = "Use the buttons at top to pick folders or files from anywhere",
+                        style = MaterialTheme.typography.bodySmall.copy(color = TextMuted.copy(alpha = 0.7f))
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(bottom = 120.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(
+                    items = directoryItems,
+                    key = { item ->
+                        when (item) {
+                            is FileExplorerItem.Directory -> "dir_${item.path}"
+                            is FileExplorerItem.Audio -> "audio_${item.path}"
+                        }
+                    }
+                ) { item ->
+                    when (item) {
+                        is FileExplorerItem.Directory -> {
+                            DirectoryRow(
+                                item = item,
+                                onClick = { viewModel.navigateTo(item.file) },
+                                onAddFolder = {
+                                    viewModel.addFolderToLibrary(item.file) { count ->
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Added $count songs from '${item.name}'")
+                                        }
+                                    }
+                                }
+                            )
+                        }
+                        is FileExplorerItem.Audio -> {
+                            val isCurrentSong = playbackState.currentSong?.mediaUri == item.song.mediaUri
+                            AudioFileRow(
+                                item = item,
+                                isPlaying = playbackState.isPlaying,
+                                isCurrentSong = isCurrentSong,
+                                onPlay = {
+                                    val contextSongs = audioItemsInCurrentDir.map { it.song }
+                                    viewModel.playSong(item.song, contextSongs)
+                                },
+                                onAddToLibrary = {
+                                    viewModel.addSingleSongToLibrary(item.song) { success ->
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar("Added '${item.song.title}' to library")
+                                        }
+                                    }
+                                },
+                                onAddToPlaylist = {
+                                    onSongSelectedForPlaylist(item.song)
+                                }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DirectoryRow(
+    item: FileExplorerItem.Directory,
+    onClick: () -> Unit,
+    onAddFolder: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() }
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(Color(0xFF24221A)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Folder,
+                contentDescription = null,
+                tint = Color(0xFFFFB300),
+                modifier = Modifier.size(24.dp)
+            )
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.name,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Medium),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+
+            val details = if (item.audioCount > 0) {
+                "${item.itemCount} items • ${item.audioCount} audio tracks"
+            } else {
+                "${item.itemCount} items"
+            }
+
+            Text(
+                text = details,
+                style = MaterialTheme.typography.bodySmall.copy(
+                    color = if (item.audioCount > 0) SecondaryCyan else TextMuted
+                )
+            )
+        }
+
+        if (item.audioCount > 0) {
+            IconButton(
+                onClick = onAddFolder,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.Add,
+                    contentDescription = "Add folder to library",
+                    tint = PrimaryViolet,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AudioFileRow(
+    item: FileExplorerItem.Audio,
+    isPlaying: Boolean,
+    isCurrentSong: Boolean,
+    onPlay: () -> Unit,
+    onAddToLibrary: () -> Unit,
+    onAddToPlaylist: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onPlay() }
+            .padding(horizontal = 8.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(42.dp)
+                .clip(RoundedCornerShape(10.dp))
+                .background(SurfaceElevated),
+            contentAlignment = Alignment.Center
+        ) {
+            if (isCurrentSong && isPlaying) {
+                EqualizerIndicator()
+            } else {
+                Icon(
+                    imageVector = Icons.Rounded.MusicNote,
+                    contentDescription = null,
+                    tint = if (isCurrentSong) PrimaryViolet else TextSecondary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = item.song.title,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    color = if (isCurrentSong) PrimaryViolet else TextPrimary,
+                    fontWeight = if (isCurrentSong) FontWeight.Bold else FontWeight.Medium
+                ),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = "${item.song.artist} • ${item.sizeFormatted}",
+                style = MaterialTheme.typography.bodySmall.copy(color = TextMuted),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+
+        IconButton(
+            onClick = onPlay,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.PlayArrow,
+                contentDescription = "Play track",
+                tint = TextPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+
+        Box {
+            IconButton(
+                onClick = { showMenu = true },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Rounded.MoreVert,
+                    contentDescription = "Options",
+                    tint = TextMuted,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+
+            DropdownMenu(
+                expanded = showMenu,
+                onDismissRequest = { showMenu = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Add to Library") },
+                    onClick = {
+                        showMenu = false
+                        onAddToLibrary()
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Add to Playlist") },
+                    onClick = {
+                        showMenu = false
+                        onAddToPlaylist()
+                    }
+                )
+            }
+        }
+    }
+}

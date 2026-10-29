@@ -50,6 +50,18 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
+    // File Explorer State
+    private val _currentDirectory = MutableStateFlow<java.io.File?>(null)
+    val currentDirectory: StateFlow<java.io.File?> = _currentDirectory.asStateFlow()
+
+    private val _directoryItems = MutableStateFlow<List<com.minimal.music.data.source.FileExplorerItem>>(emptyList())
+    val directoryItems: StateFlow<List<com.minimal.music.data.source.FileExplorerItem>> = _directoryItems.asStateFlow()
+
+    private val _isLoadingDirectory = MutableStateFlow(false)
+    val isLoadingDirectory: StateFlow<Boolean> = _isLoadingDirectory.asStateFlow()
+
+    val commonRoots: List<java.io.File> = repository.fileExplorerHelper.getCommonRoots()
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val searchResults: StateFlow<List<Song>> = _searchQuery
         .flatMapLatest { query ->
@@ -64,6 +76,62 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.initializeDatabase()
+        }
+        val defaultRoot = commonRoots.firstOrNull()
+        if (defaultRoot != null) {
+            navigateTo(defaultRoot)
+        }
+    }
+
+    fun navigateTo(folder: java.io.File) {
+        _currentDirectory.value = folder
+        loadDirectory(folder)
+    }
+
+    fun navigateUp(): Boolean {
+        val current = _currentDirectory.value ?: return false
+        val parent = current.parentFile
+        if (parent != null && parent.canRead()) {
+            navigateTo(parent)
+            return true
+        }
+        return false
+    }
+
+    private fun loadDirectory(folder: java.io.File) {
+        viewModelScope.launch {
+            _isLoadingDirectory.value = true
+            val items = repository.fileExplorerHelper.listDirectory(folder)
+            _directoryItems.value = items
+            _isLoadingDirectory.value = false
+        }
+    }
+
+    fun addFolderToLibrary(folder: java.io.File, onFinished: ((Int) -> Unit)? = null) {
+        viewModelScope.launch {
+            val count = repository.addFolderToLibrary(folder)
+            onFinished?.invoke(count)
+        }
+    }
+
+    fun addSingleSongToLibrary(song: Song, onFinished: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val count = repository.addCustomSongs(listOf(song))
+            onFinished?.invoke(count > 0)
+        }
+    }
+
+    fun importFromTreeUri(treeUri: android.net.Uri, onFinished: ((Int) -> Unit)? = null) {
+        viewModelScope.launch {
+            val count = repository.importFromTreeUri(treeUri)
+            onFinished?.invoke(count)
+        }
+    }
+
+    fun importFilesFromUris(uris: List<android.net.Uri>, onFinished: ((Int) -> Unit)? = null) {
+        viewModelScope.launch {
+            val count = repository.importFilesFromUris(uris)
+            onFinished?.invoke(count)
         }
     }
 

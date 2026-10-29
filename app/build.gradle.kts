@@ -79,6 +79,7 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation("androidx.documentfile:documentfile:1.0.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
