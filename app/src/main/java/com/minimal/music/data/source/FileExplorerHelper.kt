@@ -189,7 +189,7 @@ class FileExplorerHelper(private val context: Context) {
             for (child in children) {
                 if (child.isDirectory) {
                     scanDocument(child)
-                } else if (child.isFile) {
+                } else {
                     val name = child.name ?: ""
                     val ext = name.substringAfterLast('.', "").lowercase()
                     if (ext in audioExtensions) {

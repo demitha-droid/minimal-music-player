@@ -248,7 +248,10 @@ class MusicRepository(
     }
 
     suspend fun addFolderToLibrary(folder: java.io.File): Int = withContext(Dispatchers.IO) {
-        val songs = fileExplorerHelper.scanDirectoryRecursive(folder)
+        var songs = fileExplorerHelper.scanDirectoryRecursive(folder)
+        if (songs.isEmpty()) {
+            songs = mediaStoreScanner.scanFolder(folder.absolutePath)
+        }
         if (songs.isNotEmpty()) {
             val entities = songs.map { SongEntity.fromModel(it) }
             songDao.insertSongs(entities)
@@ -271,6 +274,11 @@ class MusicRepository(
     }
 
     suspend fun importFromTreeUri(treeUri: android.net.Uri): Int = withContext(Dispatchers.IO) {
+        try {
+            val flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(treeUri, flags)
+        } catch (_: Exception) {}
+
         val songs = fileExplorerHelper.scanTreeUriRecursive(treeUri)
         if (songs.isNotEmpty()) {
             val entities = songs.map { SongEntity.fromModel(it) }

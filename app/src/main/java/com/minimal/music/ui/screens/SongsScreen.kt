@@ -1,5 +1,6 @@
 package com.minimal.music.ui.screens
 
+import android.content.Intent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -21,6 +23,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -56,6 +61,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -89,6 +95,7 @@ fun SongsScreen(
     val searchQuery by viewModel.searchQuery.collectAsState()
     val playbackState by viewModel.playbackState.collectAsState()
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     // Handle system back gesture when inside a folder
     BackHandler(enabled = openedFolder != null) {
@@ -100,6 +107,10 @@ fun SongsScreen(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
         if (uri != null) {
+            try {
+                val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, flags)
+            } catch (_: Exception) {}
             viewModel.importFromTreeUri(uri) { count ->
                 scope.launch {
                     snackbarHostState.showSnackbar("Added $count songs from folder to library")
@@ -118,7 +129,7 @@ fun SongsScreen(
 
         if (openedFolder == null) {
             // =========================================================================
-            // ROOT VIEW OF SONGS TAB: STRICTLY FOLDERS ONLY (NO OTHER SONGS)
+            // ROOT VIEW OF SONGS TAB: 2-COLUMN GALLERY GRID (STRICTLY FOLDERS ONLY)
             // =========================================================================
 
             // Header Row
@@ -133,7 +144,7 @@ fun SongsScreen(
                         style = MaterialTheme.typography.headlineLarge
                     )
                     Text(
-                        text = "${addedFolders.size} music folders in library",
+                        text = "${addedFolders.size} music folders • 2 per row gallery",
                         style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
                     )
                 }
@@ -276,17 +287,19 @@ fun SongsScreen(
                     )
                 }
             } else {
-                // List of folders (strictly folders, no other songs below)
-                LazyColumn(
+                // 2 FOLDERS A ROW GALLERY GRID (REDUCED FOLDER SIZE)
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
                     modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(top = 4.dp, bottom = 120.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(
                         items = filteredFolders,
                         key = { it.id }
                     ) { folder ->
-                        FolderOverviewCard(
+                        FolderGalleryCard(
                             folder = folder,
                             onClick = { viewModel.openFolder(folder) },
                             onPlay = { viewModel.playFolder(folder, shuffle = false) },
@@ -329,9 +342,24 @@ fun SongsScreen(
             // FOLDER DETAIL VIEW: DISPLAY ONLY SONGS INSIDE THIS SELECTED FOLDER
             // =========================================================================
             val currentFolder = openedFolder!!
-            val folderSongs = allSongs.filter {
-                it.folderPath == currentFolder.path ||
-                    (it.folderName != null && it.folderName == currentFolder.name)
+            val folderSongs = allSongs.filter { song ->
+                val songPath = song.folderPath?.trimEnd('/', '\\')
+                val targetPath = currentFolder.path.trimEnd('/', '\\')
+
+                val pathMatch = songPath != null && (
+                    songPath.equals(targetPath, ignoreCase = true) ||
+                    songPath.startsWith("$targetPath/", ignoreCase = true) ||
+                    songPath.startsWith("$targetPath\\", ignoreCase = true) ||
+                    targetPath.startsWith("$songPath/", ignoreCase = true) ||
+                    targetPath.startsWith("$songPath\\", ignoreCase = true)
+                )
+
+                val nameMatch = !song.folderName.isNullOrBlank() &&
+                    song.folderName.equals(currentFolder.name, ignoreCase = true)
+
+                val uriMatch = song.mediaUri.contains(currentFolder.name, ignoreCase = true)
+
+                pathMatch || nameMatch || uriMatch
             }
 
             val displayFolderSongs = if (searchQuery.isBlank()) {
@@ -417,6 +445,7 @@ fun SongsScreen(
             // Folder Header Card (Album Art + Pill Play/Shuffle Buttons matching folder side, zero overlaps)
             FolderHeaderBanner(
                 folder = currentFolder,
+                songCount = folderSongs.size,
                 onPlay = { viewModel.playFolder(currentFolder, shuffle = false) },
                 onShuffle = { viewModel.playFolder(currentFolder, shuffle = true) },
                 onKeepArtwork = {
@@ -481,14 +510,16 @@ fun SongsScreen(
 }
 
 /**
- * Folder Card on the Root Songs Tab.
- * Layout guarantees strictly ZERO overlap between elements:
- * - Dedicated artwork slot with Keep / Try Again controls if unconfirmed
- * - Folder title and song count
- * - Pill-shaped Play and Shuffle buttons matching the folder sides
+ * Compact Folder Gallery Card for 2-column Grid View.
+ * Displays:
+ * - Square album cover art filling the card width
+ * - Keep / Try Again controls if unconfirmed
+ * - Folder name & track count
+ * - Pill-shaped Play and Shuffle buttons matching the folder card sides
+ * Strictly ZERO element overlap.
  */
 @Composable
-private fun FolderOverviewCard(
+private fun FolderGalleryCard(
     folder: AddedFolder,
     onClick: () -> Unit,
     onPlay: () -> Unit,
@@ -504,73 +535,48 @@ private fun FolderOverviewCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
+            .clip(RoundedCornerShape(14.dp))
             .background(SurfaceElevated)
-            .border(1.dp, SurfaceBorder, RoundedCornerShape(16.dp))
+            .border(1.dp, SurfaceBorder, RoundedCornerShape(14.dp))
             .clickable { onClick() }
-            .padding(14.dp)
+            .padding(10.dp)
     ) {
         Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            // Top Section: Album Cover Art & Info
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Square Cover Art filling width
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(1f)
+                    .clip(RoundedCornerShape(10.dp))
             ) {
-                // Square Album Cover (Local, Web Downloaded, or Sleek Generative Fallback)
                 FolderCoverImage(
                     artworkUri = folder.artworkUri,
                     folderName = folder.name,
-                    size = 68.dp,
-                    shapeRadius = 12.dp
+                    shapeRadius = 10.dp,
+                    modifier = Modifier.fillMaxSize()
                 )
 
-                // Info: Folder Title & Track Count
-                Column(
-                    modifier = Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                // 3-dots Menu floating top right with backdrop
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .padding(4.dp)
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(5.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Rounded.Folder,
-                            contentDescription = null,
-                            tint = Color(0xFFFFB300),
-                            modifier = Modifier.size(15.dp)
-                        )
-                        Text(
-                            text = folder.name,
-                            style = MaterialTheme.typography.titleMedium.copy(
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 15.sp
-                            ),
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
-                        )
-                    }
-
-                    Text(
-                        text = "${folder.songCount} tracks",
-                        style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
-                    )
-                }
-
-                // 3-dots Menu
-                Box {
                     IconButton(
                         onClick = { showMenu = true },
-                        modifier = Modifier.size(32.dp)
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color.Black.copy(alpha = 0.65f))
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.MoreVert,
                             contentDescription = "Folder options",
-                            tint = TextMuted,
-                            modifier = Modifier.size(18.dp)
+                            tint = Color.White,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
 
@@ -603,43 +609,78 @@ private fun FolderOverviewCard(
                 }
             }
 
-            // AUTOMATIC WEB ARTWORK CONFIRMATION (Keep / Try Again)
-            // When newly found from internet and unconfirmed, show dedicated Keep & Try Again banner
+            // Keep or Try Again buttons if unconfirmed
             if (!folder.isArtworkConfirmed && folder.artworkUri != null) {
-                ArtworkKeepOrTryAgainBanner(
-                    candidateIndex = folder.candidateIndex,
+                CompactArtworkActionRow(
                     onKeep = onKeepArtwork,
                     onTryAgain = onTryAgainArtwork
                 )
             }
 
+            // Folder Title & Track Count
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Rounded.Folder,
+                        contentDescription = null,
+                        tint = Color(0xFFFFB300),
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Text(
+                        text = folder.name,
+                        style = MaterialTheme.typography.titleSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 13.sp
+                        ),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Text(
+                    text = "${folder.songCount} tracks",
+                    style = MaterialTheme.typography.bodySmall.copy(
+                        color = TextMuted,
+                        fontSize = 11.sp
+                    )
+                )
+            }
+
             // PILL-SHAPED PLAY & SHUFFLE BUTTONS MATCHING THE FOLDER SIDE
-            // Clean, non-overlapping side-by-side pill buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Pill Play Button
                 Button(
                     onClick = onPlay,
                     modifier = Modifier
                         .weight(1f)
-                        .height(38.dp),
+                        .height(32.dp),
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryViolet),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.PlayArrow,
-                        contentDescription = "Play folder",
+                        contentDescription = "Play",
                         tint = Color.Black,
-                        modifier = Modifier.size(16.dp)
+                        modifier = Modifier.size(14.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
                     Text(
                         text = "Play",
                         color = Color.Black,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
                     )
                 }
 
@@ -648,23 +689,26 @@ private fun FolderOverviewCard(
                     onClick = onShuffle,
                     modifier = Modifier
                         .weight(1f)
-                        .height(38.dp),
+                        .height(32.dp),
                     shape = RoundedCornerShape(50),
                     colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
                     border = BorderStroke(1.dp, SurfaceBorder),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                    contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Shuffle,
-                        contentDescription = "Shuffle folder",
+                        contentDescription = "Shuffle",
                         tint = TextSecondary,
-                        modifier = Modifier.size(15.dp)
+                        modifier = Modifier.size(13.dp)
                     )
-                    Spacer(modifier = Modifier.width(6.dp))
+                    Spacer(modifier = Modifier.width(3.dp))
                     Text(
-                        text = "Shuffle",
+                        text = "Mix",
                         color = TextSecondary,
-                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium)
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Medium,
+                            fontSize = 11.sp
+                        )
                     )
                 }
             }
@@ -673,13 +717,84 @@ private fun FolderOverviewCard(
 }
 
 /**
+ * Compact Keep & Try Again pill button bar for 2-column gallery cards.
+ */
+@Composable
+private fun CompactArtworkActionRow(
+    onKeep: () -> Unit,
+    onTryAgain: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        // Keep Button (Pill shaped, emerald)
+        Button(
+            onClick = onKeep,
+            modifier = Modifier
+                .weight(1f)
+                .height(28.dp),
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B382B)),
+            border = BorderStroke(1.dp, Color(0xFF34D399)),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Check,
+                contentDescription = null,
+                tint = Color(0xFF34D399),
+                modifier = Modifier.size(12.dp)
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = "Keep",
+                color = Color(0xFF34D399),
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 10.sp
+                )
+            )
+        }
+
+        // Try Again Button (Pill shaped, cyan)
+        Button(
+            onClick = onTryAgain,
+            modifier = Modifier
+                .weight(1f)
+                .height(28.dp),
+            shape = RoundedCornerShape(50),
+            colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+            border = BorderStroke(1.dp, SurfaceBorder),
+            contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Rounded.Refresh,
+                contentDescription = null,
+                tint = SecondaryCyan,
+                modifier = Modifier.size(12.dp)
+            )
+            Spacer(modifier = Modifier.width(3.dp))
+            Text(
+                text = "Try",
+                color = SecondaryCyan,
+                style = MaterialTheme.typography.labelSmall.copy(
+                    fontWeight = FontWeight.Medium,
+                    fontSize = 10.sp
+                )
+            )
+        }
+    }
+}
+
+/**
  * Top Header Banner inside an Opened Folder.
- * Displays large album artwork, Keep/Try Again controls if unconfirmed, and pill Play/Shuffle buttons.
  * Guarantees zero UI overlap.
  */
 @Composable
 private fun FolderHeaderBanner(
     folder: AddedFolder,
+    songCount: Int,
     onPlay: () -> Unit,
     onShuffle: () -> Unit,
     onKeepArtwork: () -> Unit,
@@ -726,7 +841,7 @@ private fun FolderHeaderBanner(
                     )
 
                     Text(
-                        text = "${folder.songCount} songs in folder",
+                        text = "$songCount songs in folder",
                         style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
                     )
 
@@ -745,11 +860,40 @@ private fun FolderHeaderBanner(
 
             // Keep or Try Again Banner if unconfirmed web art
             if (!folder.isArtworkConfirmed && folder.artworkUri != null) {
-                ArtworkKeepOrTryAgainBanner(
-                    candidateIndex = folder.candidateIndex,
-                    onKeep = onKeepArtwork,
-                    onTryAgain = onTryAgainArtwork
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Button(
+                        onClick = onKeepArtwork,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp),
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B382B)),
+                        border = BorderStroke(1.dp, Color(0xFF34D399)),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                    ) {
+                        Icon(Icons.Rounded.Check, contentDescription = null, tint = Color(0xFF34D399), modifier = Modifier.size(15.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Keep Cover", color = Color(0xFF34D399), style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold))
+                    }
+
+                    Button(
+                        onClick = onTryAgainArtwork,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp),
+                        shape = RoundedCornerShape(50),
+                        colors = ButtonDefaults.buttonColors(containerColor = SurfaceDark),
+                        border = BorderStroke(1.dp, SurfaceBorder),
+                        contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
+                    ) {
+                        Icon(Icons.Rounded.Refresh, contentDescription = null, tint = SecondaryCyan, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Try Another", color = SecondaryCyan, style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium))
+                    }
+                }
             }
 
             // Pill-shaped Play All & Shuffle Buttons matching the folder sides
@@ -805,106 +949,6 @@ private fun FolderHeaderBanner(
                         style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold)
                     )
                 }
-            }
-        }
-    }
-}
-
-/**
- * Dedicated, non-overlapping banner shown when new album artwork is fetched from the internet.
- * Features:
- * - [✓ Keep] pill button: accepts artwork and makes the prompt go away.
- * - [↻ Try Again] pill button: fetches another candidate image from the web.
- */
-@Composable
-private fun ArtworkKeepOrTryAgainBanner(
-    candidateIndex: Int,
-    onKeep: () -> Unit,
-    onTryAgain: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color(0xFF141923))
-            .border(1.dp, SecondaryCyan.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
-            .padding(10.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Web Album Art Found",
-                style = MaterialTheme.typography.labelMedium.copy(
-                    color = SecondaryCyan,
-                    fontWeight = FontWeight.Bold
-                )
-            )
-            Text(
-                text = "Preview #${candidateIndex + 1}",
-                style = MaterialTheme.typography.bodySmall.copy(
-                    color = TextMuted,
-                    fontSize = 11.sp
-                )
-            )
-        }
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            // Keep Button (Pill shaped, green accent)
-            Button(
-                onClick = onKeep,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(34.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1B382B)),
-                border = BorderStroke(1.dp, Color(0xFF34D399)),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Check,
-                    contentDescription = null,
-                    tint = Color(0xFF34D399),
-                    modifier = Modifier.size(15.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Keep",
-                    color = Color(0xFF34D399),
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold)
-                )
-            }
-
-            // Try Again Button (Pill shaped, cyan accent)
-            Button(
-                onClick = onTryAgain,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(34.dp),
-                shape = RoundedCornerShape(50),
-                colors = ButtonDefaults.buttonColors(containerColor = SurfaceElevated),
-                border = BorderStroke(1.dp, SurfaceBorder),
-                contentPadding = PaddingValues(horizontal = 10.dp, vertical = 0.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Rounded.Refresh,
-                    contentDescription = null,
-                    tint = SecondaryCyan,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = "Try Again",
-                    color = SecondaryCyan,
-                    style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium)
-                )
             }
         }
     }

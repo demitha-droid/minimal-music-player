@@ -88,11 +88,17 @@ fun FoldersScreen(
     val commonRoots = viewModel.commonRoots
     val scope = rememberCoroutineScope()
 
+    val context = androidx.compose.ui.platform.LocalContext.current
+
     // SAF Directory picker
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
         if (uri != null) {
+            try {
+                val flags = android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION
+                context.contentResolver.takePersistableUriPermission(uri, flags)
+            } catch (_: Exception) {}
             viewModel.importFromTreeUri(uri) { count ->
                 scope.launch {
                     snackbarHostState.showSnackbar("Imported $count tracks from folder")

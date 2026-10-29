@@ -64,7 +64,7 @@ import java.io.File
 fun MinimalArtwork(
     title: String,
     modifier: Modifier = Modifier,
-    size: Dp = 48.dp,
+    size: Dp? = 48.dp,
     shapeRadius: Dp = 12.dp
 ) {
     // Generate deterministic pleasing colors from title hash
@@ -75,9 +75,10 @@ fun MinimalArtwork(
     val color1 = Color.hsl(hue1, 0.45f, 0.22f)
     val color2 = Color.hsl(hue2, 0.65f, 0.12f)
 
+    val baseModifier = if (size != null) modifier.size(size) else modifier
+
     Box(
-        modifier = modifier
-            .size(size)
+        modifier = baseModifier
             .clip(RoundedCornerShape(shapeRadius))
             .background(Brush.linearGradient(listOf(color1, color2)))
             .border(1.dp, SurfaceBorder, RoundedCornerShape(shapeRadius)),
@@ -87,7 +88,7 @@ fun MinimalArtwork(
         Text(
             text = initials,
             style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = (size.value * 0.32f).sp,
+                fontSize = if (size != null) (size.value * 0.32f).sp else 20.sp,
                 fontWeight = FontWeight.Bold,
                 color = TextPrimary.copy(alpha = 0.85f)
             )
@@ -100,7 +101,7 @@ fun FolderCoverImage(
     artworkUri: String?,
     folderName: String,
     modifier: Modifier = Modifier,
-    size: Dp = 64.dp,
+    size: Dp? = null,
     shapeRadius: Dp = 12.dp,
     contentScale: ContentScale = ContentScale.Crop
 ) {
@@ -134,12 +135,13 @@ fun FolderCoverImage(
         }
     }
 
+    val baseModifier = if (size != null) modifier.size(size) else modifier
+
     if (bitmap != null) {
         Image(
             bitmap = bitmap!!,
             contentDescription = "Cover for $folderName",
-            modifier = modifier
-                .size(size)
+            modifier = baseModifier
                 .clip(RoundedCornerShape(shapeRadius))
                 .border(1.dp, SurfaceBorder, RoundedCornerShape(shapeRadius)),
             contentScale = contentScale
