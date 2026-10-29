@@ -19,6 +19,6 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     }
 
     companion object {
-        val bottomNavItems = listOf(Discover, Songs, Folders, Playlists)
+        val bottomNavItems = listOf(Discover, Songs, Playlists, Folders)
     }
 }
