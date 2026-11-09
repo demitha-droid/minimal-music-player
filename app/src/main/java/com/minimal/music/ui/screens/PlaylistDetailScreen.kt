@@ -180,6 +180,7 @@ fun PlaylistDetailScreen(
                         onRemoveFromPlaylistClick = if (playlistId != null) {
                             { viewModel.removeSongFromPlaylist(playlistId, song.id) }
                         } else null,
+                        onFetchArtwork = { viewModel.downloadThumbnailForSong(song) },
                         showPlayCount = true
                     )
                 }

@@ -34,6 +34,7 @@ import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.CreateNewFolder
+import androidx.compose.material.icons.rounded.Download
 import androidx.compose.material.icons.rounded.Folder
 import androidx.compose.material.icons.rounded.FolderOpen
 import androidx.compose.material.icons.rounded.ImageSearch
@@ -199,6 +200,32 @@ fun SongsScreen(
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
                             contentDescription = "Rescan device files",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // Download YouTube Thumbnails for all songs button
+                    IconButton(
+                        onClick = {
+                            val total = allSongs.size
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Downloading YouTube pictures for $total songs...")
+                            }
+                            viewModel.downloadThumbnailsForSongs(allSongs) { count ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Downloaded $count YouTube pictures")
+                                }
+                            }
+                        },
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(SurfaceDark)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = "Download YouTube pictures for all songs",
                             tint = TextSecondary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -437,6 +464,27 @@ fun SongsScreen(
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     IconButton(
                         onClick = {
+                            scope.launch {
+                                snackbarHostState.showSnackbar("Downloading YouTube pictures for ${folderSongs.size} tracks...")
+                            }
+                            viewModel.downloadThumbnailsForSongs(folderSongs) { updated ->
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Downloaded $updated YouTube pictures")
+                                }
+                            }
+                        },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Download,
+                            contentDescription = "Download YouTube pictures for folder",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+
+                    IconButton(
+                        onClick = {
                             viewModel.refreshFolderArtwork(currentFolder) {
                                 scope.launch {
                                     snackbarHostState.showSnackbar("Searching web for artwork...")
@@ -524,6 +572,19 @@ fun SongsScreen(
                             onSongClick = { viewModel.playSong(song, displayFolderSongs) },
                             onFavoriteToggle = { viewModel.toggleFavorite(song) },
                             onAddToPlaylistClick = { onSongSelectedForPlaylist(song) },
+                            onFetchArtwork = {
+                                scope.launch {
+                                    snackbarHostState.showSnackbar("Downloading YouTube picture for ${song.title}...")
+                                }
+                                viewModel.downloadThumbnailForSong(song) { success ->
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar(
+                                            if (success) "Downloaded YouTube picture for ${song.title}"
+                                            else "Could not find YouTube picture for ${song.title}"
+                                        )
+                                    }
+                                }
+                            },
                             showPlayCount = true
                         )
                     }

@@ -12,10 +12,13 @@ import com.minimal.music.data.model.Song
 import com.minimal.music.data.source.FolderArtworkHelper
 import com.minimal.music.data.source.FolderArtworkResult
 import com.minimal.music.data.source.MediaStoreScanner
+import com.minimal.music.data.source.YouTubeThumbnailHelper
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class MusicRepository(
@@ -28,6 +31,7 @@ class MusicRepository(
     private val mediaStoreScanner = MediaStoreScanner(context)
     val fileExplorerHelper = com.minimal.music.data.source.FileExplorerHelper(context)
     val folderArtworkHelper = FolderArtworkHelper(context)
+    val youTubeThumbnailHelper = YouTubeThumbnailHelper(context)
 
     val allSongs: Flow<List<Song>> = songDao.getAllSongsFlow()
         .map { entities -> entities.map { it.toModel() } }
@@ -120,6 +124,21 @@ class MusicRepository(
             }
             if (folderEntity.artworkUri.isNullOrBlank()) {
                 resolveAndSaveArtwork(model, songsInFolder, forceWeb = false)
+            }
+        }
+
+        // Automatic background resolution of YouTube thumbnails for songs needing artwork
+        val songsNeedingArt = songDao.getSongsNeedingArtwork()
+        if (songsNeedingArt.isNotEmpty()) {
+            CoroutineScope(Dispatchers.IO).launch {
+                for (entity in songsNeedingArt) {
+                    try {
+                        val path = youTubeThumbnailHelper.fetchAndSaveThumbnail(entity.toModel())
+                        if (path != null) {
+                            songDao.updateSongArtwork(entity.id, path)
+                        }
+                    } catch (_: Exception) {}
+                }
             }
         }
     }
@@ -227,6 +246,16 @@ class MusicRepository(
 
         if (toInsert.isNotEmpty()) {
             songDao.insertSongs(toInsert)
+            CoroutineScope(Dispatchers.IO).launch {
+                for (entity in toInsert) {
+                    try {
+                        val path = youTubeThumbnailHelper.fetchAndSaveThumbnail(entity.toModel())
+                        if (path != null) {
+                            songDao.updateSongArtwork(entity.id, path)
+                        }
+                    } catch (_: Exception) {}
+                }
+            }
         }
         return toInsert.size
     }
@@ -388,5 +417,29 @@ class MusicRepository(
 
     suspend fun removeSongFromPlaylist(playlistId: Long, songId: Long) = withContext(Dispatchers.IO) {
         playlistDao.removeSongFromPlaylist(playlistId, songId)
+    }
+
+    suspend fun downloadThumbnailForSong(song: Song): String? = withContext(Dispatchers.IO) {
+        val path = youTubeThumbnailHelper.fetchAndSaveThumbnail(song)
+        if (path != null) {
+            songDao.updateSongArtwork(song.id, path)
+        }
+        path
+    }
+
+    suspend fun downloadThumbnailsForSongs(
+        songs: List<Song>,
+        onProgress: ((current: Int, total: Int) -> Unit)? = null
+    ): Int = withContext(Dispatchers.IO) {
+        var updatedCount = 0
+        songs.forEachIndexed { index, song ->
+            val path = youTubeThumbnailHelper.fetchAndSaveThumbnail(song)
+            if (path != null) {
+                songDao.updateSongArtwork(song.id, path)
+                updatedCount++
+            }
+            onProgress?.invoke(index + 1, songs.size)
+        }
+        updatedCount
     }
 }

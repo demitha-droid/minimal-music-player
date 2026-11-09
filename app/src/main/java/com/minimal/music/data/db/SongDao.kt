@@ -75,4 +75,10 @@ interface SongDao {
 
     @Query("DELETE FROM songs WHERE id IN (:ids)")
     suspend fun deleteSongsByIds(ids: List<Long>): Int
+
+    @Query("UPDATE songs SET artwork_uri = :artworkUri WHERE id = :songId")
+    suspend fun updateSongArtwork(songId: Long, artworkUri: String): Int
+
+    @Query("SELECT * FROM songs WHERE artwork_uri IS NULL OR artwork_uri = '' OR artwork_uri LIKE 'content://%'")
+    suspend fun getSongsNeedingArtwork(): List<SongEntity>
 }

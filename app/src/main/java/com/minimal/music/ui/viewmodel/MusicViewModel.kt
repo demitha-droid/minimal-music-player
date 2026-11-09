@@ -393,6 +393,24 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun downloadThumbnailForSong(song: Song, onDone: ((Boolean) -> Unit)? = null) {
+        viewModelScope.launch {
+            val path = repository.downloadThumbnailForSong(song)
+            onDone?.invoke(path != null)
+        }
+    }
+
+    fun downloadThumbnailsForSongs(
+        songs: List<Song>,
+        onProgress: ((current: Int, total: Int) -> Unit)? = null,
+        onDone: ((Int) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            val count = repository.downloadThumbnailsForSongs(songs, onProgress)
+            onDone?.invoke(count)
+        }
+    }
+
     override fun onCleared() {
         super.onCleared()
         playbackManager.release()

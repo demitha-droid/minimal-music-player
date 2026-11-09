@@ -201,7 +201,8 @@ fun MiniPlayerBar(
                     MinimalArtwork(
                         title = song.title,
                         size = 40.dp,
-                        shapeRadius = 8.dp
+                        shapeRadius = 8.dp,
+                        artworkUri = song.artworkUri
                     )
 
                     Column(

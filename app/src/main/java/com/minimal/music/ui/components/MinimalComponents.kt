@@ -79,26 +79,59 @@ fun MinimalArtwork(
     title: String,
     modifier: Modifier = Modifier,
     size: Dp? = 48.dp,
-    shapeRadius: Dp = 12.dp
+    shapeRadius: Dp = 12.dp,
+    artworkUri: String? = null,
+    contentScale: ContentScale = ContentScale.Crop
 ) {
+    val context = LocalContext.current
+    var bitmap by remember(artworkUri) {
+        mutableStateOf(artworkUri?.let { ImageCacheManager.get(it)?.asImageBitmap() })
+    }
+
+    LaunchedEffect(artworkUri) {
+        if (!artworkUri.isNullOrBlank()) {
+            if (bitmap == null) {
+                withContext(Dispatchers.IO) {
+                    val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri)
+                    if (bmp != null) {
+                        bitmap = bmp.asImageBitmap()
+                    }
+                }
+            }
+        } else {
+            bitmap = null
+        }
+    }
+
     val baseModifier = if (size != null) modifier.size(size) else modifier
 
-    Box(
-        modifier = baseModifier
-            .clip(RoundedCornerShape(shapeRadius))
-            .background(SurfaceElevated)
-            .border(1.dp, SurfaceBorder, RoundedCornerShape(shapeRadius)),
-        contentAlignment = Alignment.Center
-    ) {
-        val initials = title.take(2).uppercase()
-        Text(
-            text = initials,
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontSize = if (size != null) (size.value * 0.32f).sp else 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = TextSecondary
-            )
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap!!,
+            contentDescription = "Cover for $title",
+            modifier = baseModifier
+                .clip(RoundedCornerShape(shapeRadius))
+                .border(1.dp, SurfaceBorder, RoundedCornerShape(shapeRadius)),
+            contentScale = contentScale
         )
+    } else {
+        Box(
+            modifier = baseModifier
+                .clip(RoundedCornerShape(shapeRadius))
+                .background(SurfaceElevated)
+                .border(1.dp, SurfaceBorder, RoundedCornerShape(shapeRadius)),
+            contentAlignment = Alignment.Center
+        ) {
+            val initials = title.take(2).uppercase()
+            Text(
+                text = initials,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = if (size != null) (size.value * 0.32f).sp else 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = TextSecondary
+                )
+            )
+        }
     }
 }
 

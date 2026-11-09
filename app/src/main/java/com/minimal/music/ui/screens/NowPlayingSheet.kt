@@ -36,6 +36,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.rounded.Bedtime
+import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
@@ -172,13 +173,27 @@ fun NowPlayingSheet(
                     )
                 )
 
-                IconButton(onClick = { viewModel.toggleFavorite(song.copy(isFavorite = isFavorite)) }) {
-                    Icon(
-                        imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
-                        contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
-                        tint = if (isFavorite) HeartActive else TextMuted,
-                        modifier = Modifier.size(22.dp)
-                    )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    IconButton(onClick = { viewModel.downloadThumbnailForSong(song) }) {
+                        Icon(
+                            imageVector = Icons.Rounded.ImageSearch,
+                            contentDescription = "Fetch YouTube Thumbnail",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    IconButton(onClick = { viewModel.toggleFavorite(song.copy(isFavorite = isFavorite)) }) {
+                        Icon(
+                            imageVector = if (isFavorite) Icons.Filled.Favorite else Icons.Outlined.FavoriteBorder,
+                            contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
+                            tint = if (isFavorite) HeartActive else TextMuted,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 }
             }
 
@@ -252,7 +267,8 @@ fun NowPlayingSheet(
                     MinimalArtwork(
                         title = song.title,
                         size = 100.dp,
-                        shapeRadius = 50.dp
+                        shapeRadius = 50.dp,
+                        artworkUri = song.artworkUri
                     )
 
                     // Center Spindle hole

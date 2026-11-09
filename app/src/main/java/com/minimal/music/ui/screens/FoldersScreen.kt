@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.sp
 import com.minimal.music.data.model.Song
 import com.minimal.music.data.source.FileExplorerItem
 import com.minimal.music.ui.components.EqualizerIndicator
+import com.minimal.music.ui.components.MinimalArtwork
 import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.PrimaryViolet
 import com.minimal.music.ui.theme.SecondaryCyan
@@ -364,6 +365,19 @@ fun FoldersScreen(
                                 },
                                 onAddToPlaylist = {
                                     onSongSelectedForPlaylist(item.song)
+                                },
+                                onFetchArtwork = {
+                                    scope.launch {
+                                        snackbarHostState.showSnackbar("Downloading YouTube picture for ${item.song.title}...")
+                                    }
+                                    viewModel.downloadThumbnailForSong(item.song) { success ->
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(
+                                                if (success) "Downloaded YouTube picture for ${item.song.title}"
+                                                else "Could not find YouTube picture for ${item.song.title}"
+                                            )
+                                        }
+                                    }
                                 }
                             )
                         }
@@ -451,7 +465,8 @@ private fun AudioFileRow(
     onPlay: () -> Unit,
     onAddToLibrary: () -> Unit,
     onAddToPlaylist: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onFetchArtwork: (() -> Unit)? = null
 ) {
     var showMenu by remember { mutableStateOf(false) }
 
@@ -474,11 +489,11 @@ private fun AudioFileRow(
             if (isCurrentSong && isPlaying) {
                 EqualizerIndicator()
             } else {
-                Icon(
-                    imageVector = Icons.Rounded.MusicNote,
-                    contentDescription = null,
-                    tint = if (isCurrentSong) TextPrimary else TextSecondary,
-                    modifier = Modifier.size(22.dp)
+                MinimalArtwork(
+                    title = item.song.title,
+                    size = 42.dp,
+                    shapeRadius = 10.dp,
+                    artworkUri = item.song.artworkUri
                 )
             }
         }
@@ -530,6 +545,15 @@ private fun AudioFileRow(
                 expanded = showMenu,
                 onDismissRequest = { showMenu = false }
             ) {
+                if (onFetchArtwork != null) {
+                    DropdownMenuItem(
+                        text = { Text("Get YouTube Picture") },
+                        onClick = {
+                            showMenu = false
+                            onFetchArtwork()
+                        }
+                    )
+                }
                 DropdownMenuItem(
                     text = { Text("Add to Library") },
                     onClick = {

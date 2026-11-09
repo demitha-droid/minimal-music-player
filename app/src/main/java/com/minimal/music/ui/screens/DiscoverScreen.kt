@@ -245,6 +245,7 @@ fun DiscoverScreen(
                                 onSongClick = { viewModel.playSong(song, mostPlayed) },
                                 onFavoriteToggle = { viewModel.toggleFavorite(song) },
                                 onAddToPlaylistClick = { onSongSelectedForPlaylist(song) },
+                                onFetchArtwork = { viewModel.downloadThumbnailForSong(song) },
                                 showPlayCount = true
                             )
                         }
@@ -375,7 +376,8 @@ private fun PopularSongCard(
             MinimalArtwork(
                 title = song.title,
                 size = 128.dp,
-                shapeRadius = 14.dp
+                shapeRadius = 14.dp,
+                artworkUri = song.artworkUri
             )
 
             // Rank Badge

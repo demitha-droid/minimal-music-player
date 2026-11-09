@@ -52,6 +52,7 @@ fun SongListItem(
     modifier: Modifier = Modifier,
     onAddToPlaylistClick: (() -> Unit)? = null,
     onRemoveFromPlaylistClick: (() -> Unit)? = null,
+    onFetchArtwork: (() -> Unit)? = null,
     showPlayCount: Boolean = false
 ) {
     var showMenu by remember { mutableStateOf(false) }
@@ -68,7 +69,8 @@ fun SongListItem(
         MinimalArtwork(
             title = song.title,
             size = 46.dp,
-            shapeRadius = 10.dp
+            shapeRadius = 10.dp,
+            artworkUri = song.artworkUri
         )
 
         Column(
@@ -159,7 +161,7 @@ fun SongListItem(
             )
         }
 
-        if (onAddToPlaylistClick != null || onRemoveFromPlaylistClick != null) {
+        if (onAddToPlaylistClick != null || onRemoveFromPlaylistClick != null || onFetchArtwork != null) {
             Box {
                 IconButton(
                     onClick = { showMenu = true },
@@ -177,6 +179,15 @@ fun SongListItem(
                     expanded = showMenu,
                     onDismissRequest = { showMenu = false }
                 ) {
+                    if (onFetchArtwork != null) {
+                        DropdownMenuItem(
+                            text = { Text("Get YouTube Picture") },
+                            onClick = {
+                                showMenu = false
+                                onFetchArtwork()
+                            }
+                        )
+                    }
                     if (onAddToPlaylistClick != null) {
                         DropdownMenuItem(
                             text = { Text("Add to playlist") },
