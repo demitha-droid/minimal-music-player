@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.minimal.music.data.model.Song
 import com.minimal.music.player.PlaybackState
 import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.PrimaryViolet
@@ -61,7 +62,9 @@ import kotlin.math.roundToInt
 
 @Composable
 fun MiniPlayerBar(
-    playbackState: PlaybackState,
+    currentSong: Song,
+    isPlaying: Boolean,
+    progressProvider: () -> Float,
     onPlayPauseClick: () -> Unit,
     onNextClick: () -> Unit,
     onClick: () -> Unit,
@@ -70,7 +73,7 @@ fun MiniPlayerBar(
     onPreviousClick: () -> Unit = {},
     sleepTimerRemainingMs: Long? = null
 ) {
-    val song = playbackState.currentSong ?: return
+    val song = currentSong
     val dismissOffsetY = remember { Animatable(0f) }
     val songSwipeOffsetX = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -137,7 +140,7 @@ fun MiniPlayerBar(
         Column {
             // Linear progress along top
             LinearProgressIndicator(
-                progress = { playbackState.progress },
+                progress = progressProvider,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp),
@@ -268,8 +271,8 @@ fun MiniPlayerBar(
                         .background(TextPrimary)
                 ) {
                     Icon(
-                        imageVector = if (playbackState.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
-                        contentDescription = if (playbackState.isPlaying) "Pause" else "Play",
+                        imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
+                        contentDescription = if (isPlaying) "Pause" else "Play",
                         tint = BgDark,
                         modifier = Modifier.size(20.dp)
                     )

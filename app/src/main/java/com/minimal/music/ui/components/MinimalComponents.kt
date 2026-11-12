@@ -19,6 +19,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -55,7 +56,9 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -92,7 +95,8 @@ fun MinimalArtwork(
         if (!artworkUri.isNullOrBlank()) {
             if (bitmap == null) {
                 withContext(Dispatchers.IO) {
-                    val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri)
+                    val reqPx = size?.let { (it.value * 2.5f).toInt().coerceIn(90, 480) } ?: 180
+                    val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri, reqWidth = reqPx, reqHeight = reqPx)
                     if (bmp != null) {
                         bitmap = bmp.asImageBitmap()
                     }
@@ -224,7 +228,8 @@ fun FolderCoverImage(
         if (!artworkUri.isNullOrBlank()) {
             if (bitmap == null) {
                 withContext(Dispatchers.IO) {
-                    val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri)
+                    val reqPx = size?.let { (it.value * 2.5f).toInt().coerceIn(90, 480) } ?: 180
+                    val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri, reqWidth = reqPx, reqHeight = reqPx)
                     if (bmp != null) {
                         bitmap = bmp.asImageBitmap()
                     }
@@ -262,56 +267,74 @@ fun EqualizerIndicator(
 ) {
     val barColor = EqualizerGreen
     val infiniteTransition = rememberInfiniteTransition(label = "eq")
-    val h1 by infiniteTransition.animateFloat(
-        initialValue = 4f,
-        targetValue = 16f,
+    val s1 by infiniteTransition.animateFloat(
+        initialValue = 0.2f,
+        targetValue = 1.0f,
         animationSpec = infiniteRepeatable(
             animation = tween(450, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "h1"
+        label = "s1"
     )
-    val h2 by infiniteTransition.animateFloat(
-        initialValue = 14f,
-        targetValue = 6f,
+    val s2 by infiniteTransition.animateFloat(
+        initialValue = 0.85f,
+        targetValue = 0.3f,
         animationSpec = infiniteRepeatable(
             animation = tween(380, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "h2"
+        label = "s2"
     )
-    val h3 by infiniteTransition.animateFloat(
-        initialValue = 6f,
-        targetValue = 18f,
+    val s3 by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 0.95f,
         animationSpec = infiniteRepeatable(
             animation = tween(520, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
         ),
-        label = "h3"
+        label = "s3"
     )
 
-    Canvas(
+    Row(
         modifier = modifier
             .width(16.dp)
-            .height(20.dp)
+            .height(18.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.Bottom
     ) {
-        val barWidth = 3.dp.toPx()
-        val spacing = 2.dp.toPx()
-        val cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f)
-        val maxHeight = this.size.height
-
-        val heights = listOf(h1.dp.toPx(), h2.dp.toPx(), h3.dp.toPx())
-        for (i in 0..2) {
-            val barHeight = heights[i].coerceIn(2f, maxHeight)
-            val left = i * (barWidth + spacing)
-            val top = maxHeight - barHeight
-            drawRoundRect(
-                color = barColor,
-                topLeft = Offset(left, top),
-                size = Size(barWidth, barHeight),
-                cornerRadius = cornerRadius
-            )
-        }
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    scaleY = s1
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                }
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(barColor)
+        )
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    scaleY = s2
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                }
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(barColor)
+        )
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .fillMaxHeight()
+                .graphicsLayer {
+                    scaleY = s3
+                    transformOrigin = TransformOrigin(0.5f, 1f)
+                }
+                .clip(RoundedCornerShape(1.5.dp))
+                .background(barColor)
+        )
     }
 }
 

@@ -1,6 +1,7 @@
 package com.minimal.music.ui.screens
 
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
@@ -83,7 +84,8 @@ fun FoldersScreen(
     viewModel: MusicViewModel,
     snackbarHostState: SnackbarHostState,
     onSongSelectedForPlaylist: (Song) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isActive: Boolean = true
 ) {
     val currentDir by viewModel.currentDirectory.collectAsState()
     val directoryItems by viewModel.directoryItems.collectAsState()
@@ -98,6 +100,11 @@ fun FoldersScreen(
     val scope = rememberCoroutineScope()
 
     val context = androidx.compose.ui.platform.LocalContext.current
+
+    // Handle system back gesture when navigated into a subfolder
+    BackHandler(enabled = isActive && currentDir != null) {
+        viewModel.navigateUp()
+    }
 
     // SAF Directory picker
     val folderPickerLauncher = rememberLauncherForActivityResult(

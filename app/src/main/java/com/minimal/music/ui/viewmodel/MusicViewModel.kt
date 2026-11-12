@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
@@ -79,6 +80,33 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     val addedFolders: StateFlow<List<AddedFolder>> = repository.addedFolders
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val folderTrackMap: StateFlow<Map<Long, List<Song>>> = combine(allSongs, addedFolders) { songs, folders ->
+        val map = mutableMapOf<Long, List<Song>>()
+        for (folder in folders) {
+            val targetPath = folder.path.trimEnd('/', '\\')
+            val matched = songs.filter { song ->
+                val songPath = song.folderPath?.trimEnd('/', '\\')
+                val pathMatch = songPath != null && (
+                    songPath.equals(targetPath, ignoreCase = true) ||
+                    songPath.startsWith("$targetPath/", ignoreCase = true) ||
+                    songPath.startsWith("$targetPath\\", ignoreCase = true)
+                )
+                val nameMatch = !song.folderName.isNullOrBlank() &&
+                    song.folderName.equals(folder.name, ignoreCase = true) &&
+                    (songPath == null || songPath.contains(folder.name, ignoreCase = true))
+
+                pathMatch || nameMatch
+            }.distinctBy {
+                val normTitle = it.title.trim().lowercase()
+                val normArtist = it.artist.trim().lowercase()
+                val durBucket = it.durationMs / 2000L
+                "${normTitle}::${normArtist}::${durBucket}"
+            }
+            map[folder.id] = matched
+        }
+        map
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private val _selectedFolderFilter = MutableStateFlow<AddedFolder?>(null)
     val selectedFolderFilter: StateFlow<AddedFolder?> = _selectedFolderFilter.asStateFlow()
@@ -257,25 +285,7 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun playFolder(folder: AddedFolder, shuffle: Boolean = false) {
-        val targetPath = folder.path.trimEnd('/', '\\')
-        val folderSongs = allSongs.value.filter { song ->
-            val songPath = song.folderPath?.trimEnd('/', '\\')
-            val pathMatch = songPath != null && (
-                songPath.equals(targetPath, ignoreCase = true) ||
-                songPath.startsWith("$targetPath/", ignoreCase = true) ||
-                songPath.startsWith("$targetPath\\", ignoreCase = true)
-            )
-            val nameMatch = !song.folderName.isNullOrBlank() &&
-                song.folderName.equals(folder.name, ignoreCase = true) &&
-                (songPath == null || songPath.contains(folder.name, ignoreCase = true))
-
-            pathMatch || nameMatch
-        }.distinctBy {
-            val normTitle = it.title.trim().lowercase()
-            val normArtist = it.artist.trim().lowercase()
-            val durBucket = it.durationMs / 2000L
-            "${normTitle}::${normArtist}::${durBucket}"
-        }
+        val folderSongs = folderTrackMap.value[folder.id] ?: emptyList()
         if (folderSongs.isNotEmpty()) {
             if (shuffle) {
                 playQueue(folderSongs.shuffled(), 0)

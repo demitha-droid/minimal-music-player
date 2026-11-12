@@ -94,7 +94,8 @@ fun SongsScreen(
     viewModel: MusicViewModel,
     snackbarHostState: SnackbarHostState,
     onSongSelectedForPlaylist: (Song) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isActive: Boolean = true
 ) {
     val allSongs by viewModel.allSongs.collectAsState()
     val addedFolders by viewModel.addedFolders.collectAsState()
@@ -112,7 +113,7 @@ fun SongsScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
 
     // Handle system back gesture when inside a folder
-    BackHandler(enabled = openedFolder != null) {
+    BackHandler(enabled = isActive && openedFolder != null) {
         viewModel.closeFolder()
     }
 
@@ -397,28 +398,8 @@ fun SongsScreen(
             // FOLDER DETAIL VIEW: DISPLAY ONLY SONGS INSIDE THIS SELECTED FOLDER
             // =========================================================================
             val currentFolder = openedFolder!!
-            val folderSongs = remember(allSongs, currentFolder) {
-                val targetPath = currentFolder.path.trimEnd('/', '\\')
-                allSongs.filter { song ->
-                    val songPath = song.folderPath?.trimEnd('/', '\\')
-                    val pathMatch = songPath != null && (
-                        songPath.equals(targetPath, ignoreCase = true) ||
-                        songPath.startsWith("$targetPath/", ignoreCase = true) ||
-                        songPath.startsWith("$targetPath\\", ignoreCase = true)
-                    )
-
-                    val nameMatch = !song.folderName.isNullOrBlank() &&
-                        song.folderName.equals(currentFolder.name, ignoreCase = true) &&
-                        (songPath == null || songPath.contains(currentFolder.name, ignoreCase = true))
-
-                    pathMatch || nameMatch
-                }.distinctBy {
-                    val normTitle = it.title.trim().lowercase()
-                    val normArtist = it.artist.trim().lowercase()
-                    val durBucket = it.durationMs / 2000L
-                    "${normTitle}::${normArtist}::${durBucket}"
-                }
-            }
+            val folderTrackMap by viewModel.folderTrackMap.collectAsState()
+            val folderSongs = folderTrackMap[currentFolder.id] ?: emptyList()
 
             val displayFolderSongs = remember(folderSongs, searchQuery) {
                 if (searchQuery.isBlank()) {
