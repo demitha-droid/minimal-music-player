@@ -14,7 +14,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PlaylistSongCrossRef::class,
         AddedFolderEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class MusicDatabase : RoomDatabase() {
@@ -52,6 +52,12 @@ abstract class MusicDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE songs ADD COLUMN lyrics TEXT DEFAULT NULL")
+            }
+        }
+
         fun getDatabase(context: Context): MusicDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -59,7 +65,7 @@ abstract class MusicDatabase : RoomDatabase() {
                     MusicDatabase::class.java,
                     "minimal_music_db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance

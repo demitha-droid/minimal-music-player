@@ -7,6 +7,7 @@ import com.minimal.music.data.model.AddedFolder
 import com.minimal.music.data.model.Playlist
 import com.minimal.music.data.model.Song
 import com.minimal.music.data.repository.MusicRepository
+import com.minimal.music.data.source.ParsedLyrics
 import com.minimal.music.player.PlaybackManager
 import com.minimal.music.player.PlaybackState
 import com.minimal.music.ui.theme.ThemeMode
@@ -90,6 +91,12 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
 
     val commonRoots: List<java.io.File> = repository.fileExplorerHelper.getCommonRoots()
 
+    private val _currentLyrics = MutableStateFlow<String?>(null)
+    val currentLyrics: StateFlow<String?> = _currentLyrics.asStateFlow()
+
+    private val _isLoadingLyrics = MutableStateFlow(false)
+    val isLoadingLyrics: StateFlow<Boolean> = _isLoadingLyrics.asStateFlow()
+
     @OptIn(ExperimentalCoroutinesApi::class)
     val searchResults: StateFlow<List<Song>> = _searchQuery
         .flatMapLatest { query ->
@@ -104,6 +111,19 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
     init {
         viewModelScope.launch {
             repository.initializeDatabase()
+        }
+        viewModelScope.launch {
+            var lastSongId: Long? = null
+            playbackState.collect { state ->
+                val song = state.currentSong
+                if (song != null && song.id != lastSongId) {
+                    lastSongId = song.id
+                    loadLyricsForSong(song)
+                } else if (song == null) {
+                    lastSongId = null
+                    _currentLyrics.value = null
+                }
+            }
         }
         val defaultRoot = commonRoots.firstOrNull()
         if (defaultRoot != null) {
@@ -409,6 +429,26 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             val count = repository.downloadThumbnailsForSongs(songs, onProgress)
             onDone?.invoke(count)
         }
+    }
+
+    fun parseLyrics(raw: String?): ParsedLyrics {
+        return repository.lyricsHelper.parseLyrics(raw)
+    }
+
+    fun loadLyricsForSong(song: Song, forceRefresh: Boolean = false) {
+        viewModelScope.launch {
+            _isLoadingLyrics.value = true
+            val lyrics = repository.getLyricsForSong(song, forceRefresh = forceRefresh)
+            if (playbackState.value.currentSong?.id == song.id) {
+                _currentLyrics.value = lyrics
+            }
+            _isLoadingLyrics.value = false
+        }
+    }
+
+    fun retryLyricsForCurrentSong() {
+        val current = playbackState.value.currentSong ?: return
+        loadLyricsForSong(current, forceRefresh = true)
     }
 
     override fun onCleared() {

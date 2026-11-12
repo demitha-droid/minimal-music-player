@@ -38,6 +38,7 @@ import androidx.compose.material.icons.outlined.FavoriteBorder
 import androidx.compose.material.icons.rounded.Bedtime
 import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.KeyboardArrowDown
+import androidx.compose.material.icons.rounded.Lyrics
 import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
@@ -81,6 +82,7 @@ import kotlinx.coroutines.launch
 import kotlin.math.roundToInt
 import com.minimal.music.player.PlaybackState
 import com.minimal.music.player.RepeatMode as AppRepeatMode
+import com.minimal.music.ui.components.LyricsView
 import com.minimal.music.ui.components.MinimalArtwork
 import com.minimal.music.ui.components.SleepTimerSheet
 import com.minimal.music.ui.theme.BgDark
@@ -110,6 +112,11 @@ fun NowPlayingSheet(
     var isUserSeeking by remember { mutableStateOf(false) }
     var seekPositionRatio by remember { mutableFloatStateOf(0f) }
     var showSleepTimerSheet by remember { mutableStateOf(false) }
+    var showLyrics by remember { mutableStateOf(false) }
+
+    val currentLyrics by viewModel.currentLyrics.collectAsState()
+    val isLoadingLyrics by viewModel.isLoadingLyrics.collectAsState()
+    val parsedLyrics = remember(currentLyrics) { viewModel.parseLyrics(currentLyrics) }
 
     val remainingMs by viewModel.sleepTimerRemainingMs.collectAsState()
     val isEndOfSong by viewModel.isSleepTimerEndOfSong.collectAsState()
@@ -139,12 +146,13 @@ fun NowPlayingSheet(
         dragHandle = null,
         modifier = modifier.fillMaxSize()
     ) {
+        val sheetScrollState = rememberScrollState()
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
-                .verticalScroll(rememberScrollState())
+                .verticalScroll(sheetScrollState, enabled = !showLyrics)
                 .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.SpaceBetween
@@ -177,6 +185,15 @@ fun NowPlayingSheet(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
+                    IconButton(onClick = { showLyrics = !showLyrics }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Lyrics,
+                            contentDescription = if (showLyrics) "Hide Lyrics" else "Show Lyrics",
+                            tint = if (showLyrics) TextPrimary else TextSecondary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
                     IconButton(onClick = { viewModel.downloadThumbnailForSong(song) }) {
                         Icon(
                             imageVector = Icons.Rounded.ImageSearch,
@@ -199,89 +216,105 @@ fun NowPlayingSheet(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Swipeable Disc + Song Info Area (Swipe Left -> Next Song, Swipe Right -> Previous Song)
+            // Swipeable Disc / Lyrics Display + Song Info Area
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .offset { IntOffset(swipeOffsetX.value.roundToInt(), 0) }
-                    .pointerInput(song.id) {
-                        detectHorizontalDragGestures(
-                            onDragEnd = {
-                                val offset = swipeOffsetX.value
-                                if (offset <= -swipeThresholdPx) {
-                                    // Swiped Left -> Skip to Next Track
-                                    scope.launch {
-                                        swipeOffsetX.animateTo(-500f, tween(120))
-                                        viewModel.skipNext()
-                                        swipeOffsetX.snapTo(500f)
-                                        swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                    .pointerInput(song.id, showLyrics) {
+                        if (!showLyrics) {
+                            detectHorizontalDragGestures(
+                                onDragEnd = {
+                                    val offset = swipeOffsetX.value
+                                    if (offset <= -swipeThresholdPx) {
+                                        // Swiped Left -> Skip to Next Track
+                                        scope.launch {
+                                            swipeOffsetX.animateTo(-500f, tween(120))
+                                            viewModel.skipNext()
+                                            swipeOffsetX.snapTo(500f)
+                                            swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                        }
+                                    } else if (offset >= swipeThresholdPx) {
+                                        // Swiped Right -> Skip to Previous Track
+                                        scope.launch {
+                                            swipeOffsetX.animateTo(500f, tween(120))
+                                            viewModel.skipPrevious(forcePrevious = true)
+                                            swipeOffsetX.snapTo(-500f)
+                                            swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                        }
+                                    } else {
+                                        scope.launch {
+                                            swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                        }
                                     }
-                                } else if (offset >= swipeThresholdPx) {
-                                    // Swiped Right -> Skip to Previous Track
+                                },
+                                onDragCancel = {
+                                    scope.launch { swipeOffsetX.animateTo(0f) }
+                                },
+                                onHorizontalDrag = { change, dragAmount ->
+                                    change.consume()
                                     scope.launch {
-                                        swipeOffsetX.animateTo(500f, tween(120))
-                                        viewModel.skipPrevious(forcePrevious = true)
-                                        swipeOffsetX.snapTo(-500f)
-                                        swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
-                                    }
-                                } else {
-                                    scope.launch {
-                                        swipeOffsetX.animateTo(0f, spring(dampingRatio = Spring.DampingRatioMediumBouncy))
+                                        swipeOffsetX.snapTo(swipeOffsetX.value + dragAmount)
                                     }
                                 }
-                            },
-                            onDragCancel = {
-                                scope.launch { swipeOffsetX.animateTo(0f) }
-                            },
-                            onHorizontalDrag = { change, dragAmount ->
-                                change.consume()
-                                scope.launch {
-                                    swipeOffsetX.snapTo(swipeOffsetX.value + dragAmount)
-                                }
-                            }
-                        )
+                            )
+                        }
                     },
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                // Flat Disc / Album Cover Artwork
-                Box(
-                    modifier = Modifier
-                        .sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
-                        .aspectRatio(1f)
-                        .clip(CircleShape)
-                        .background(SurfaceElevated)
-                        .border(1.dp, SurfaceBorder, CircleShape)
-                        .graphicsLayer {
-                            rotationZ = if (playbackState.isPlaying) rotation else 0f
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    // Subtle flat ring
+                if (showLyrics) {
+                    LyricsView(
+                        rawLyrics = currentLyrics,
+                        isLoading = isLoadingLyrics,
+                        currentPositionMs = playbackState.currentPositionMs,
+                        parsedLyrics = parsedLyrics,
+                        onSeekTo = { viewModel.seekTo(it) },
+                        onRetry = { viewModel.retryLyricsForCurrentSong() },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(260.dp)
+                    )
+                } else {
+                    // Flat Disc / Album Cover Artwork
                     Box(
                         modifier = Modifier
-                            .fillMaxSize(0.85f)
-                            .border(1.dp, SurfaceBorder.copy(alpha = 0.5f), CircleShape)
-                    )
-
-                    // Center Label
-                    MinimalArtwork(
-                        title = song.title,
-                        size = 100.dp,
-                        shapeRadius = 50.dp,
-                        artworkUri = song.artworkUri
-                    )
-
-                    // Center Spindle hole
-                    Box(
-                        modifier = Modifier
-                            .size(16.dp)
+                            .sizeIn(maxWidth = 260.dp, maxHeight = 260.dp)
+                            .aspectRatio(1f)
                             .clip(CircleShape)
-                            .background(BgDark)
+                            .background(SurfaceElevated)
                             .border(1.dp, SurfaceBorder, CircleShape)
-                    )
+                            .graphicsLayer {
+                                rotationZ = if (playbackState.isPlaying) rotation else 0f
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        // Subtle flat ring
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize(0.85f)
+                                .border(1.dp, SurfaceBorder.copy(alpha = 0.5f), CircleShape)
+                        )
+
+                        // Center Label
+                        MinimalArtwork(
+                            title = song.title,
+                            size = 100.dp,
+                            shapeRadius = 50.dp,
+                            artworkUri = song.artworkUri
+                        )
+
+                        // Center Spindle hole
+                        Box(
+                            modifier = Modifier
+                                .size(16.dp)
+                                .clip(CircleShape)
+                                .background(BgDark)
+                                .border(1.dp, SurfaceBorder, CircleShape)
+                        )
+                    }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(18.dp))
 
                 // Title & Artist Info
                 Column(
@@ -307,6 +340,37 @@ fun NowPlayingSheet(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
+
+                    // Quick Toggle Pill below title & artist
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (showLyrics) SurfaceDark else SurfaceElevated)
+                            .border(
+                                1.dp,
+                                if (showLyrics) TextPrimary else SurfaceBorder,
+                                RoundedCornerShape(12.dp)
+                            )
+                            .clickable { showLyrics = !showLyrics }
+                            .padding(horizontal = 10.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Lyrics,
+                            contentDescription = null,
+                            tint = if (showLyrics) TextPrimary else TextSecondary,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Text(
+                            text = if (showLyrics) "Show Disc" else "Show Lyrics",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (showLyrics) TextPrimary else TextSecondary
+                            )
+                        )
+                    }
                 }
             }
 

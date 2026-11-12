@@ -11,6 +11,7 @@ import com.minimal.music.data.model.Playlist
 import com.minimal.music.data.model.Song
 import com.minimal.music.data.source.FolderArtworkHelper
 import com.minimal.music.data.source.FolderArtworkResult
+import com.minimal.music.data.source.LyricsHelper
 import com.minimal.music.data.source.MediaStoreScanner
 import com.minimal.music.data.source.YouTubeThumbnailHelper
 import kotlinx.coroutines.CoroutineScope
@@ -32,6 +33,7 @@ class MusicRepository(
     val fileExplorerHelper = com.minimal.music.data.source.FileExplorerHelper(context)
     val folderArtworkHelper = FolderArtworkHelper(context)
     val youTubeThumbnailHelper = YouTubeThumbnailHelper(context)
+    val lyricsHelper = LyricsHelper(context)
 
     val allSongs: Flow<List<Song>> = songDao.getAllSongsFlow()
         .map { entities -> entities.map { it.toModel() } }
@@ -441,5 +443,18 @@ class MusicRepository(
             onProgress?.invoke(index + 1, songs.size)
         }
         updatedCount
+    }
+
+    suspend fun getLyricsForSong(song: Song, forceRefresh: Boolean = false): String? = withContext(Dispatchers.IO) {
+        val existingDbLyrics = if (!forceRefresh) songDao.getSongLyrics(song.id) else null
+        if (!existingDbLyrics.isNullOrBlank()) {
+            return@withContext existingDbLyrics
+        }
+
+        val resolved = lyricsHelper.resolveLyrics(song, forceRefresh = forceRefresh)
+        if (!resolved.isNullOrBlank()) {
+            songDao.updateSongLyrics(song.id, resolved)
+        }
+        resolved
     }
 }

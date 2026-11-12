@@ -13,7 +13,8 @@ data class Song(
     val popularityScore: Int = 0,
     val dateAdded: Long = System.currentTimeMillis(),
     val folderName: String? = null,
-    val folderPath: String? = null
+    val folderPath: String? = null,
+    val lyrics: String? = null
 ) {
     val formattedDuration: String
         get() {

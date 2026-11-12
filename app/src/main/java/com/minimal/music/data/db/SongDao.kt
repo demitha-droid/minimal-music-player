@@ -81,4 +81,10 @@ interface SongDao {
 
     @Query("SELECT * FROM songs WHERE artwork_uri IS NULL OR artwork_uri = '' OR artwork_uri LIKE 'content://%'")
     suspend fun getSongsNeedingArtwork(): List<SongEntity>
+
+    @Query("UPDATE songs SET lyrics = :lyrics WHERE id = :songId")
+    suspend fun updateSongLyrics(songId: Long, lyrics: String): Int
+
+    @Query("SELECT lyrics FROM songs WHERE id = :songId LIMIT 1")
+    suspend fun getSongLyrics(songId: Long): String?
 }
