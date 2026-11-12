@@ -43,6 +43,7 @@ import androidx.compose.material.icons.rounded.Pause
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Repeat
 import androidx.compose.material.icons.rounded.RepeatOne
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.SkipNext
 import androidx.compose.material.icons.rounded.SkipPrevious
@@ -84,6 +85,7 @@ import com.minimal.music.player.PlaybackState
 import com.minimal.music.player.RepeatMode as AppRepeatMode
 import com.minimal.music.ui.components.LyricsView
 import com.minimal.music.ui.components.MinimalArtwork
+import com.minimal.music.ui.components.SettingsSheet
 import com.minimal.music.ui.components.SleepTimerSheet
 import com.minimal.music.ui.theme.BgDark
 import com.minimal.music.ui.theme.HeartActive
@@ -112,7 +114,10 @@ fun NowPlayingSheet(
     var isUserSeeking by remember { mutableStateOf(false) }
     var seekPositionRatio by remember { mutableFloatStateOf(0f) }
     var showSleepTimerSheet by remember { mutableStateOf(false) }
-    var showLyrics by remember { mutableStateOf(false) }
+    var showSettingsSheet by remember { mutableStateOf(false) }
+
+    val openLyricsByDefault by viewModel.openLyricsByDefault.collectAsState()
+    var showLyrics by remember(openLyricsByDefault) { mutableStateOf(openLyricsByDefault) }
 
     val currentLyrics by viewModel.currentLyrics.collectAsState()
     val isLoadingLyrics by viewModel.isLoadingLyrics.collectAsState()
@@ -183,7 +188,7 @@ fun NowPlayingSheet(
 
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     IconButton(onClick = { showLyrics = !showLyrics }) {
                         Icon(
@@ -209,6 +214,15 @@ fun NowPlayingSheet(
                             contentDescription = if (isFavorite) "Remove from favorites" else "Add to favorites",
                             tint = if (isFavorite) HeartActive else TextMuted,
                             modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    IconButton(onClick = { showSettingsSheet = true }) {
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
+                            contentDescription = "Settings",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
@@ -572,6 +586,13 @@ fun NowPlayingSheet(
                 onAdjustTimer = { viewModel.adjustSleepTimer(it) },
                 onCancelTimer = { viewModel.cancelSleepTimer() },
                 onDismiss = { showSleepTimerSheet = false }
+            )
+        }
+
+        if (showSettingsSheet) {
+            SettingsSheet(
+                viewModel = viewModel,
+                onDismiss = { showSettingsSheet = false }
             )
         }
     }

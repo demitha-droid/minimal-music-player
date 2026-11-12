@@ -69,14 +69,17 @@ class LyricsHelperTest {
 
         val parsed = LyricsHelper.parseLyrics(lrc)
 
-        // Before any line starts
+        // Before any line starts (1000 + 450 = 1450 < 2000)
         assertEquals(-1, parsed.getCurrentLineIndex(1000L))
 
-        // At exactly first line
+        // Vocal onset lead-in: 450ms before timestamp (1550 + 450 = 2000)
+        assertEquals(0, parsed.getCurrentLineIndex(1550L))
+
+        // At first line
         assertEquals(0, parsed.getCurrentLineIndex(2000L))
 
-        // In between first and second
-        assertEquals(0, parsed.getCurrentLineIndex(3500L))
+        // Vocal onset lead-in for second line: 450ms before timestamp (4550 + 450 = 5000)
+        assertEquals(1, parsed.getCurrentLineIndex(4550L))
 
         // At second line
         assertEquals(1, parsed.getCurrentLineIndex(5000L))

@@ -22,11 +22,17 @@ data class ParsedLyrics(
     val lines: List<LyricLine>,
     val rawText: String
 ) {
-    fun getCurrentLineIndex(positionMs: Long): Int {
+    /**
+     * Determines the currently active line index based on playback position.
+     * Uses a default [leadOffsetMs] of 450ms so lines highlight as soon as singing begins,
+     * compensating for audio buffer latency and vocal onset timing.
+     */
+    fun getCurrentLineIndex(positionMs: Long, leadOffsetMs: Long = 450L): Int {
         if (!isSynced || lines.isEmpty()) return -1
+        val effectiveMs = positionMs + leadOffsetMs
         var activeIndex = -1
         for (i in lines.indices) {
-            if (lines[i].timeMs <= positionMs) {
+            if (lines[i].timeMs <= effectiveMs) {
                 activeIndex = i
             } else {
                 break

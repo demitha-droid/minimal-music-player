@@ -156,14 +156,14 @@ fun FoldersScreen(
                 )
             }
 
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
                 // Pick Folder Button
                 IconButton(
                     onClick = { folderPickerLauncher.launch(null) },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceElevated)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.CreateNewFolder,
@@ -176,10 +176,7 @@ fun FoldersScreen(
                 // Pick Audio Files Button
                 IconButton(
                     onClick = { filesPickerLauncher.launch(arrayOf("audio/*")) },
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .background(SurfaceElevated)
+                    modifier = Modifier.size(36.dp)
                 ) {
                     Icon(
                         imageVector = Icons.AutoMirrored.Rounded.NoteAdd,

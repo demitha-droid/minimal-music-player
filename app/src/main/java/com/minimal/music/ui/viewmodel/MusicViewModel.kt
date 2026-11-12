@@ -42,6 +42,16 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
         prefs.edit().putString("theme_mode", mode.name).apply()
     }
 
+    private val _openLyricsByDefault = MutableStateFlow(
+        prefs.getBoolean("open_lyrics_by_default", true)
+    )
+    val openLyricsByDefault: StateFlow<Boolean> = _openLyricsByDefault.asStateFlow()
+
+    fun setOpenLyricsByDefault(open: Boolean) {
+        _openLyricsByDefault.value = open
+        prefs.edit().putBoolean("open_lyrics_by_default", open).apply()
+    }
+
     val playbackManager = PlaybackManager(
         context = application,
         scope = viewModelScope,

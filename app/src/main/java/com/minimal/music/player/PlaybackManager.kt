@@ -154,7 +154,7 @@ class PlaybackManager(
                         checkAndRecordPlayCount(forced = false)
                     }
                 }
-                delay(500)
+                delay(100)
             }
         }
     }

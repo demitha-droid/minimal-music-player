@@ -24,17 +24,21 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.LocalFireDepartment
 import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material.icons.rounded.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -46,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.minimal.music.data.model.Song
 import com.minimal.music.ui.components.MinimalArtwork
+import com.minimal.music.ui.components.SettingsSheet
 import com.minimal.music.ui.components.SongListItem
 import com.minimal.music.ui.components.ThemeSwitcherButton
 import com.minimal.music.ui.theme.BgDark
@@ -78,6 +83,7 @@ fun DiscoverScreen(
         viewModel.playbackState.map { it.isPlaying }.distinctUntilChanged()
     }.collectAsState(initial = false)
     val themeMode by viewModel.themeMode.collectAsState()
+    var showSettingsSheet by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = modifier
@@ -105,10 +111,27 @@ fun DiscoverScreen(
                     )
                 }
 
-                ThemeSwitcherButton(
-                    currentTheme = themeMode,
-                    onThemeSelect = { viewModel.setThemeMode(it) }
-                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    ThemeSwitcherButton(
+                        currentTheme = themeMode,
+                        onThemeSelect = { viewModel.setThemeMode(it) }
+                    )
+
+                    IconButton(
+                        onClick = { showSettingsSheet = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
+                            contentDescription = "Settings",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
             }
         }
 
@@ -253,6 +276,13 @@ fun DiscoverScreen(
                 }
             }
         }
+    }
+
+    if (showSettingsSheet) {
+        SettingsSheet(
+            viewModel = viewModel,
+            onDismiss = { showSettingsSheet = false }
+        )
     }
 }
 

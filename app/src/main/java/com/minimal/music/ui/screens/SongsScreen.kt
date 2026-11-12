@@ -41,6 +41,7 @@ import androidx.compose.material.icons.rounded.ImageSearch
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -71,6 +72,7 @@ import com.minimal.music.data.model.AddedFolder
 import com.minimal.music.data.model.Song
 import com.minimal.music.ui.components.FolderCoverImage
 import com.minimal.music.ui.components.MinimalSearchBar
+import com.minimal.music.ui.components.SettingsSheet
 import com.minimal.music.ui.components.SongListItem
 import com.minimal.music.ui.components.ThemeSwitcherButton
 import com.minimal.music.ui.theme.BgDark
@@ -107,6 +109,7 @@ fun SongsScreen(
     val themeMode by viewModel.themeMode.collectAsState()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    var showSettingsSheet by remember { mutableStateOf(false) }
 
     // Handle system back gesture when inside a folder
     BackHandler(enabled = openedFolder != null) {
@@ -160,7 +163,10 @@ fun SongsScreen(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     // Theme Switcher Button
                     ThemeSwitcherButton(
                         currentTheme = themeMode,
@@ -170,10 +176,7 @@ fun SongsScreen(
                     // Add Folder Shortcut
                     IconButton(
                         onClick = { folderPickerLauncher.launch(null) },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceElevated)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.CreateNewFolder,
@@ -192,10 +195,7 @@ fun SongsScreen(
                                 }
                             }
                         },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceDark)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
@@ -218,14 +218,24 @@ fun SongsScreen(
                                 }
                             }
                         },
-                        modifier = Modifier
-                            .size(40.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceDark)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Download,
                             contentDescription = "Download YouTube pictures for all songs",
+                            tint = TextSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    // Settings Button
+                    IconButton(
+                        onClick = { showSettingsSheet = true },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Rounded.Settings,
+                            contentDescription = "Settings",
                             tint = TextSecondary,
                             modifier = Modifier.size(20.dp)
                         )
@@ -434,10 +444,7 @@ fun SongsScreen(
                 ) {
                     IconButton(
                         onClick = { viewModel.closeFolder() },
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(SurfaceDark)
+                        modifier = Modifier.size(36.dp)
                     ) {
                         Icon(
                             imageVector = Icons.AutoMirrored.Rounded.ArrowBack,
@@ -591,6 +598,13 @@ fun SongsScreen(
                 }
             }
         }
+    }
+
+    if (showSettingsSheet) {
+        SettingsSheet(
+            viewModel = viewModel,
+            onDismiss = { showSettingsSheet = false }
+        )
     }
 }
 

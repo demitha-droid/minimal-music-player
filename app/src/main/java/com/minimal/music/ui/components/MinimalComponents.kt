@@ -392,10 +392,7 @@ fun ThemeSwitcherButton(
     Box(modifier = modifier) {
         IconButton(
             onClick = { expanded = true },
-            modifier = Modifier
-                .size(40.dp)
-                .clip(CircleShape)
-                .background(SurfaceElevated)
+            modifier = Modifier.size(36.dp)
         ) {
             Icon(
                 imageVector = icon,
