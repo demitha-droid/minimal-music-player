@@ -1,17 +1,10 @@
 package com.minimal.music.ui
 
-import androidx.activity.compose.BackHandler
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -22,7 +15,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.QueueMusic
+import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -37,16 +30,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.pointer.PointerEventPass
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.zIndex
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.minimal.music.data.model.Song
 import com.minimal.music.ui.components.MiniPlayerBar
 import com.minimal.music.ui.navigation.MinimalBottomNavBar
@@ -69,26 +63,15 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(viewModel: MusicViewModel) {
-    var currentTab by rememberSaveable { mutableStateOf(Screen.Discover.route) }
-    var activePlaylistDetail by remember { mutableStateOf<Pair<Long, String>?>(null) }
+    val navController = rememberNavController()
+    val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val currentRoute = navBackStackEntry?.destination?.route
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     val playlists by viewModel.playlists.collectAsState()
-    val favorites by viewModel.favorites.collectAsState()
-    val mostPlayed by viewModel.mostPlayed.collectAsState()
-    val mostPopular by viewModel.mostPopular.collectAsState()
-
     var showNowPlayingSheet by remember { mutableStateOf(false) }
     var selectedSongForPlaylist by remember { mutableStateOf<Song?>(null) }
-
-    // Intercept back gesture: first dismiss playlist detail overlay, then return to Discover tab
-    BackHandler(enabled = activePlaylistDetail != null) {
-        activePlaylistDetail = null
-    }
-    BackHandler(enabled = activePlaylistDetail == null && currentTab != Screen.Discover.route) {
-        currentTab = Screen.Discover.route
-    }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -100,106 +83,94 @@ fun MainScreen(viewModel: MusicViewModel) {
                 )
 
                 MinimalBottomNavBar(
-                    currentRoute = if (activePlaylistDetail != null) Screen.Playlists.route else currentTab,
+                    currentRoute = currentRoute,
                     onNavigate = { screen ->
-                        activePlaylistDetail = null
-                        currentTab = screen.route
+                        navController.navigate(screen.route) {
+                            popUpTo(Screen.Discover.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
                 )
             }
         },
         containerColor = MaterialTheme.colorScheme.background
     ) { innerPadding ->
-        Box(
+        NavHost(
+            navController = navController,
+            startDestination = Screen.Discover.route,
+            enterTransition = { fadeIn(animationSpec = tween(150)) },
+            exitTransition = { fadeOut(animationSpec = tween(150)) },
+            popEnterTransition = { fadeIn(animationSpec = tween(150)) },
+            popExitTransition = { fadeOut(animationSpec = tween(150)) },
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
         ) {
-            // 1. Discover Tab
-            PersistentTabContainer(
-                isActive = currentTab == Screen.Discover.route && activePlaylistDetail == null
-            ) {
+            composable(Screen.Discover.route) {
                 DiscoverScreen(
                     viewModel = viewModel,
                     onSongSelectedForPlaylist = { selectedSongForPlaylist = it }
                 )
             }
 
-            // 2. Songs Tab
-            PersistentTabContainer(
-                isActive = currentTab == Screen.Songs.route && activePlaylistDetail == null
-            ) {
+            composable(Screen.Songs.route) {
                 SongsScreen(
                     viewModel = viewModel,
                     snackbarHostState = snackbarHostState,
-                    onSongSelectedForPlaylist = { selectedSongForPlaylist = it },
-                    isActive = currentTab == Screen.Songs.route && activePlaylistDetail == null
+                    onSongSelectedForPlaylist = { selectedSongForPlaylist = it }
                 )
             }
 
-            // 3. Playlists Tab
-            PersistentTabContainer(
-                isActive = currentTab == Screen.Playlists.route && activePlaylistDetail == null
-            ) {
-                PlaylistsScreen(
-                    viewModel = viewModel,
-                    onOpenSmartPlaylist = { smartName ->
-                        activePlaylistDetail = Pair(-1L, smartName)
-                    },
-                    onOpenPlaylist = { playlist ->
-                        activePlaylistDetail = Pair(playlist.id, playlist.name)
-                    }
-                )
-            }
-
-            // 4. Explorer (Folders) Tab
-            PersistentTabContainer(
-                isActive = currentTab == Screen.Folders.route && activePlaylistDetail == null
-            ) {
+            composable(Screen.Folders.route) {
                 FoldersScreen(
                     viewModel = viewModel,
                     snackbarHostState = snackbarHostState,
-                    onSongSelectedForPlaylist = { selectedSongForPlaylist = it },
-                    isActive = currentTab == Screen.Folders.route && activePlaylistDetail == null
+                    onSongSelectedForPlaylist = { selectedSongForPlaylist = it }
                 )
             }
 
-            // 5. Playlist Detail Overlay (Zero-delay, smooth fade/slide)
-            val playlistDetail = activePlaylistDetail
-            AnimatedVisibility(
-                visible = playlistDetail != null,
-                enter = fadeIn(animationSpec = tween(150)) + slideInVertically(
-                    initialOffsetY = { 40 },
-                    animationSpec = tween(150)
-                ),
-                exit = fadeOut(animationSpec = tween(150)) + slideOutVertically(
-                    targetOffsetY = { 40 },
-                    animationSpec = tween(150)
-                ),
-                modifier = Modifier
-                    .fillMaxSize()
-                    .zIndex(10f)
-            ) {
-                if (playlistDetail != null) {
-                    val (playlistId, playlistName) = playlistDetail
-                    val songs: List<Song> = when {
-                        playlistId == -1L && playlistName == "Favorites" -> favorites
-                        playlistId == -1L && playlistName == "Most Played" -> mostPlayed
-                        playlistId == -1L && playlistName == "Most Popular" -> mostPopular
-                        else -> {
-                            val playlistSongs by viewModel.getSongsForPlaylist(playlistId).collectAsState(initial = emptyList())
-                            playlistSongs
-                        }
+            composable(Screen.Playlists.route) {
+                PlaylistsScreen(
+                    viewModel = viewModel,
+                    onOpenSmartPlaylist = { smartName ->
+                        navController.navigate(Screen.PlaylistDetail.createRoute(-1L, smartName))
+                    },
+                    onOpenPlaylist = { playlist ->
+                        navController.navigate(Screen.PlaylistDetail.createRoute(playlist.id, playlist.name))
                     }
+                )
+            }
 
-                    PlaylistDetailScreen(
-                        title = playlistName,
-                        playlistId = if (playlistId == -1L) null else playlistId,
-                        songs = songs,
-                        viewModel = viewModel,
-                        onBack = { activePlaylistDetail = null }
-                    )
-                }
+            composable(
+                route = Screen.PlaylistDetail.route,
+                arguments = listOf(
+                    navArgument("playlistId") { type = NavType.LongType },
+                    navArgument("playlistName") { type = NavType.StringType }
+                )
+            ) { backStackEntry ->
+                val playlistId = backStackEntry.arguments?.getLong("playlistId") ?: -1L
+                val rawName = backStackEntry.arguments?.getString("playlistName") ?: "Playlist"
+                val playlistName = rawName.replace("_", "/")
+
+                val playlistSongs by remember(playlistId, playlistName) {
+                    when {
+                        playlistId == -1L && playlistName == "Favorites" -> viewModel.favorites
+                        playlistId == -1L && playlistName == "Most Played" -> viewModel.mostPlayed
+                        playlistId == -1L && playlistName == "Most Popular" -> viewModel.mostPopular
+                        else -> viewModel.getSongsForPlaylist(playlistId)
+                    }
+                }.collectAsState(initial = emptyList())
+
+                PlaylistDetailScreen(
+                    title = playlistName,
+                    playlistId = if (playlistId == -1L) null else playlistId,
+                    songs = playlistSongs,
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
             }
         }
     }
@@ -263,7 +234,7 @@ fun MainScreen(viewModel: MusicViewModel) {
                                 horizontalArrangement = Arrangement.spacedBy(12.dp)
                             ) {
                                 Icon(
-                                    imageVector = Icons.Rounded.QueueMusic,
+                                    imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                                     contentDescription = null,
                                     tint = TextSecondary,
                                     modifier = Modifier.size(20.dp)
@@ -279,55 +250,6 @@ fun MainScreen(viewModel: MusicViewModel) {
                 }
             }
         }
-    }
-}
-
-/**
- * Persistent tab wrapper that keeps the Composable mounted in the composition tree
- * with GPU-accelerated opacity + translation transitions.
- * Eliminates DOM-like cold tree destruction/rebuilding and preserves scroll positions.
- */
-@Composable
-private fun PersistentTabContainer(
-    isActive: Boolean,
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    val alpha by animateFloatAsState(
-        targetValue = if (isActive) 1f else 0f,
-        animationSpec = tween(durationMillis = 150),
-        label = "tabAlpha"
-    )
-    val translationY by animateFloatAsState(
-        targetValue = if (isActive) 0f else 20f,
-        animationSpec = tween(durationMillis = 150),
-        label = "tabTranslationY"
-    )
-
-    Box(
-        modifier = modifier
-            .fillMaxSize()
-            .graphicsLayer {
-                this.alpha = alpha
-                this.translationY = translationY
-            }
-            .zIndex(if (isActive) 1f else 0f)
-            .then(
-                if (!isActive) {
-                    Modifier.pointerInput(isActive) {
-                        awaitPointerEventScope {
-                            while (true) {
-                                val event = awaitPointerEvent(PointerEventPass.Initial)
-                                event.changes.forEach { it.consume() }
-                            }
-                        }
-                    }
-                } else {
-                    Modifier
-                }
-            )
-    ) {
-        content()
     }
 }
 

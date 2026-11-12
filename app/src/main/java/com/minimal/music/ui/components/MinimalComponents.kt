@@ -88,12 +88,15 @@ fun MinimalArtwork(
 ) {
     val context = LocalContext.current
     var bitmap by remember(artworkUri) {
-        mutableStateOf(artworkUri?.let { ImageCacheManager.get(it)?.asImageBitmap() })
+        mutableStateOf<ImageBitmap?>(null)
     }
 
     LaunchedEffect(artworkUri) {
         if (!artworkUri.isNullOrBlank()) {
-            if (bitmap == null) {
+            val cached = ImageCacheManager.get(artworkUri)
+            if (cached != null) {
+                bitmap = cached.asImageBitmap()
+            } else {
                 withContext(Dispatchers.IO) {
                     val reqPx = size?.let { (it.value * 2.5f).toInt().coerceIn(90, 480) } ?: 180
                     val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri, reqWidth = reqPx, reqHeight = reqPx)
@@ -108,10 +111,11 @@ fun MinimalArtwork(
     }
 
     val baseModifier = if (size != null) modifier.size(size) else modifier
+    val currentBitmap = bitmap
 
-    if (bitmap != null) {
+    if (currentBitmap != null) {
         Image(
-            bitmap = bitmap!!,
+            bitmap = currentBitmap,
             contentDescription = "Cover for $title",
             modifier = baseModifier
                 .clip(RoundedCornerShape(shapeRadius))
@@ -144,18 +148,29 @@ fun MinimalArtwork(
  * Eliminates repeated disk reads and prevents Garbage Collector pauses.
  */
 object ImageCacheManager {
-    private val maxMemory = (Runtime.getRuntime().maxMemory() / 1024).toInt()
-    private val cacheSize = (maxMemory / 8).coerceIn(1024 * 8, 1024 * 32)
+    private val cacheSize: Int = try {
+        val maxMemoryKb = (Runtime.getRuntime().maxMemory() / 1024L).coerceIn(1024L * 8, 1024L * 256).toInt()
+        (maxMemoryKb / 8).coerceIn(1024 * 4, 1024 * 32)
+    } catch (_: Throwable) {
+        1024 * 16
+    }
 
     private val lruCache = object : LruCache<String, Bitmap>(cacheSize) {
         override fun sizeOf(key: String, bitmap: Bitmap): Int {
-            return bitmap.byteCount / 1024
+            return (bitmap.byteCount / 1024).coerceAtLeast(1)
         }
     }
 
-    fun get(key: String): Bitmap? = lruCache.get(key)
+    fun get(key: String): Bitmap? = try {
+        lruCache.get(key)
+    } catch (_: Throwable) {
+        null
+    }
+
     fun put(key: String, bitmap: Bitmap) {
-        lruCache.put(key, bitmap)
+        try {
+            lruCache.put(key, bitmap)
+        } catch (_: Throwable) {}
     }
 
     fun decodeSampledBitmap(context: Context, uriString: String, reqWidth: Int = 360, reqHeight: Int = 360): Bitmap? {
@@ -197,16 +212,17 @@ object ImageCacheManager {
     }
 
     private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
-        val (height: Int, width: Int) = options.outHeight to options.outWidth
+        val height = options.outHeight
+        val width = options.outWidth
         var inSampleSize = 1
         if (height > reqHeight || width > reqWidth) {
-            val halfHeight: Int = height / 2
-            val halfWidth: Int = width / 2
+            val halfHeight = height / 2
+            val halfWidth = width / 2
             while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
                 inSampleSize *= 2
             }
         }
-        return inSampleSize
+        return inSampleSize.coerceAtLeast(1)
     }
 }
 
@@ -221,12 +237,15 @@ fun FolderCoverImage(
 ) {
     val context = LocalContext.current
     var bitmap by remember(artworkUri) {
-        mutableStateOf(artworkUri?.let { ImageCacheManager.get(it)?.asImageBitmap() })
+        mutableStateOf<ImageBitmap?>(null)
     }
 
     LaunchedEffect(artworkUri) {
         if (!artworkUri.isNullOrBlank()) {
-            if (bitmap == null) {
+            val cached = ImageCacheManager.get(artworkUri)
+            if (cached != null) {
+                bitmap = cached.asImageBitmap()
+            } else {
                 withContext(Dispatchers.IO) {
                     val reqPx = size?.let { (it.value * 2.5f).toInt().coerceIn(90, 480) } ?: 180
                     val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri, reqWidth = reqPx, reqHeight = reqPx)
@@ -241,10 +260,11 @@ fun FolderCoverImage(
     }
 
     val baseModifier = if (size != null) modifier.size(size) else modifier
+    val currentBitmap = bitmap
 
-    if (bitmap != null) {
+    if (currentBitmap != null) {
         Image(
-            bitmap = bitmap!!,
+            bitmap = currentBitmap,
             contentDescription = "Cover for $folderName",
             modifier = baseModifier
                 .clip(RoundedCornerShape(shapeRadius))

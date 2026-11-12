@@ -94,8 +94,7 @@ fun SongsScreen(
     viewModel: MusicViewModel,
     snackbarHostState: SnackbarHostState,
     onSongSelectedForPlaylist: (Song) -> Unit,
-    modifier: Modifier = Modifier,
-    isActive: Boolean = true
+    modifier: Modifier = Modifier
 ) {
     val allSongs by viewModel.allSongs.collectAsState()
     val addedFolders by viewModel.addedFolders.collectAsState()
@@ -113,7 +112,7 @@ fun SongsScreen(
     var showSettingsSheet by remember { mutableStateOf(false) }
 
     // Handle system back gesture when inside a folder
-    BackHandler(enabled = isActive && openedFolder != null) {
+    BackHandler(enabled = openedFolder != null) {
         viewModel.closeFolder()
     }
 

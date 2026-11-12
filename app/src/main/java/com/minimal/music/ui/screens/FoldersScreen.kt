@@ -84,8 +84,7 @@ fun FoldersScreen(
     viewModel: MusicViewModel,
     snackbarHostState: SnackbarHostState,
     onSongSelectedForPlaylist: (Song) -> Unit,
-    modifier: Modifier = Modifier,
-    isActive: Boolean = true
+    modifier: Modifier = Modifier
 ) {
     val currentDir by viewModel.currentDirectory.collectAsState()
     val directoryItems by viewModel.directoryItems.collectAsState()
@@ -102,7 +101,7 @@ fun FoldersScreen(
     val context = androidx.compose.ui.platform.LocalContext.current
 
     // Handle system back gesture when navigated into a subfolder
-    BackHandler(enabled = isActive && currentDir != null) {
+    BackHandler(enabled = currentDir != null) {
         viewModel.navigateUp()
     }
 
