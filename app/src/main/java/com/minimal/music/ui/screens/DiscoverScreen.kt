@@ -195,7 +195,7 @@ fun DiscoverScreen(
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = "Add folders in Folders tab to discover music",
+                            text = "Add folders in Explorer tab to discover music",
                             style = MaterialTheme.typography.bodyMedium.copy(color = TextMuted)
                         )
                     }
@@ -377,7 +377,7 @@ private fun HeroCard(
                 }
             } else {
                 Text(
-                    text = "Add folders from the Folders tab to begin enjoying music offline.",
+                    text = "Add folders from the Explorer tab to begin enjoying music offline.",
                     style = MaterialTheme.typography.bodySmall.copy(color = TextMuted)
                 )
             }

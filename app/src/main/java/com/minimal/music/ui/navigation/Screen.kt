@@ -10,7 +10,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 sealed class Screen(val route: String, val title: String, val icon: ImageVector? = null) {
     object Discover : Screen("discover", "Discover", Icons.Rounded.Explore)
     object Songs : Screen("songs", "Songs", Icons.Rounded.MusicNote)
-    object Folders : Screen("folders", "Folders", Icons.Rounded.Folder)
+    object Folders : Screen("folders", "Explorer", Icons.Rounded.Folder)
     object Playlists : Screen("playlists", "Playlists", Icons.Rounded.LibraryMusic)
 
     object PlaylistDetail : Screen("playlist_detail/{playlistId}/{playlistName}", "Playlist") {
