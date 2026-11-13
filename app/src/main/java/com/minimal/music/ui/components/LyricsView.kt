@@ -74,11 +74,13 @@ fun LyricsView(
         }
     }
 
-    // Auto-scroll list to active line
+    // Auto-scroll list to active line (only if user is not actively scrolling)
     LaunchedEffect(activeIndex) {
         if (parsedLyrics.isSynced && activeIndex >= 0 && parsedLyrics.lines.isNotEmpty()) {
-            val targetIndex = (activeIndex - 2).coerceAtLeast(0)
-            listState.animateScrollToItem(targetIndex)
+            if (!listState.isScrollInProgress) {
+                val targetIndex = (activeIndex - 2).coerceAtLeast(0)
+                listState.animateScrollToItem(targetIndex)
+            }
         }
     }
 
@@ -224,7 +226,10 @@ fun LyricsView(
                             verticalArrangement = Arrangement.spacedBy(10.dp),
                             modifier = Modifier.fillMaxSize()
                         ) {
-                            itemsIndexed(parsedLyrics.lines) { index, line ->
+                            itemsIndexed(
+                                items = parsedLyrics.lines,
+                                key = { index, line -> "${line.timeMs}_$index" }
+                            ) { index, line ->
                                 val isCurrent = parsedLyrics.isSynced && index == activeIndex
                                 val isPast = parsedLyrics.isSynced && index < activeIndex
 

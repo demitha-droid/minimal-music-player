@@ -175,27 +175,47 @@ class LyricsHelper(private val context: Context) {
                 uri.scheme == "file" -> uri.path
                 song.mediaUri.startsWith("/") -> song.mediaUri
                 else -> null
-            } ?: return null
-
-            val audioFile = File(filePath)
-            if (!audioFile.exists()) return null
-
-            val parent = audioFile.parentFile ?: return null
-            val baseName = audioFile.nameWithoutExtension
-
-            val possibleLrc = File(parent, "$baseName.lrc")
-            if (possibleLrc.exists() && possibleLrc.canRead()) {
-                val content = possibleLrc.readText().trim()
-                if (content.isNotBlank()) return content
             }
 
-            val possibleTxt = File(parent, "$baseName.txt")
-            if (possibleTxt.exists() && possibleTxt.canRead()) {
-                val content = possibleTxt.readText().trim()
-                if (content.isNotBlank()) return content
+            if (filePath != null) {
+                val audioFile = File(filePath)
+                if (audioFile.exists()) {
+                    val parent = audioFile.parentFile
+                    if (parent != null) {
+                        val baseName = audioFile.nameWithoutExtension
+                        val content = readLrcOrTxtFromDir(parent, baseName, song.title)
+                        if (content != null) return content
+                    }
+                }
+            }
+
+            // Fallback for MediaStore tracks (content:// URIs) using song.folderPath
+            val folderPath = song.folderPath
+            if (!folderPath.isNullOrBlank()) {
+                val folder = File(folderPath)
+                if (folder.exists() && folder.isDirectory) {
+                    val content = readLrcOrTxtFromDir(folder, song.title, song.title)
+                    if (content != null) return content
+                }
             }
         } catch (_: Exception) {
             // Ignore file access exceptions
+        }
+        return null
+    }
+
+    private fun readLrcOrTxtFromDir(dir: File, baseName: String, title: String): String? {
+        val candidates = listOf(
+            File(dir, "$baseName.lrc"),
+            File(dir, "$baseName.txt"),
+            File(dir, "$title.lrc"),
+            File(dir, "$title.txt")
+        )
+        for (file in candidates) {
+            if (file.exists() && file.canRead()) {
+                val text = file.readText().trim()
+                if (text.isNotBlank()) return text
+            }
         }
         return null
     }
@@ -325,8 +345,8 @@ class LyricsHelper(private val context: Context) {
     private fun fetchFromLyricsOvh(artist: String, title: String): String? {
         var conn: HttpURLConnection? = null
         try {
-            val encArtist = URLEncoder.encode(artist, "UTF-8")
-            val encTitle = URLEncoder.encode(title, "UTF-8")
+            val encArtist = URLEncoder.encode(artist, "UTF-8").replace("+", "%20")
+            val encTitle = URLEncoder.encode(title, "UTF-8").replace("+", "%20")
             val url = URL("https://api.lyrics.ovh/v1/$encArtist/$encTitle")
             conn = (url.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 6000

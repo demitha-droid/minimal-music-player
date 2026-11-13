@@ -189,7 +189,7 @@ fun SettingsSheet(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    ThemeMode.values().forEach { mode ->
+                    ThemeMode.entries.forEach { mode ->
                         val isSelected = mode == themeMode
                         Box(
                             modifier = Modifier

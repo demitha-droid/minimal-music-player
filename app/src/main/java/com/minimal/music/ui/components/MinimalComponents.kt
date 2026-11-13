@@ -87,18 +87,23 @@ fun MinimalArtwork(
     contentScale: ContentScale = ContentScale.Crop
 ) {
     val context = LocalContext.current
-    var bitmap by remember(artworkUri) {
-        mutableStateOf<ImageBitmap?>(null)
+    val reqPx = size?.let { (it.value * 2.5f).toInt().coerceIn(90, 480) } ?: 180
+
+    // Initialize directly from in-memory cache to eliminate 1-frame placeholder flash during scrolling
+    val initialCached = remember(artworkUri, reqPx) {
+        artworkUri?.let { ImageCacheManager.get(it, reqPx)?.asImageBitmap() }
+    }
+    var bitmap by remember(artworkUri, reqPx) {
+        mutableStateOf(initialCached)
     }
 
-    LaunchedEffect(artworkUri) {
+    LaunchedEffect(artworkUri, reqPx) {
         if (!artworkUri.isNullOrBlank()) {
-            val cached = ImageCacheManager.get(artworkUri)
+            val cached = ImageCacheManager.get(artworkUri, reqPx)
             if (cached != null) {
                 bitmap = cached.asImageBitmap()
             } else {
                 withContext(Dispatchers.IO) {
-                    val reqPx = size?.let { (it.value * 2.5f).toInt().coerceIn(90, 480) } ?: 180
                     val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri, reqWidth = reqPx, reqHeight = reqPx)
                     if (bmp != null) {
                         bitmap = bmp.asImageBitmap()
@@ -161,20 +166,39 @@ object ImageCacheManager {
         }
     }
 
-    fun get(key: String): Bitmap? = try {
-        lruCache.get(key)
+    private fun tier(reqWidth: Int): String = when {
+        reqWidth <= 140 -> "sm"
+        reqWidth <= 280 -> "md"
+        else -> "lg"
+    }
+
+    fun get(uriString: String, reqWidth: Int = 360): Bitmap? = try {
+        val t = tier(reqWidth)
+        val exact = lruCache.get("${uriString}_$t")
+        if (exact != null && !exact.isRecycled) {
+            exact
+        } else {
+            val lg = lruCache.get("${uriString}_lg")
+            if (lg != null && !lg.isRecycled) {
+                lg
+            } else {
+                val md = lruCache.get("${uriString}_md")
+                if (md != null && !md.isRecycled) md else null
+            }
+        }
     } catch (_: Throwable) {
         null
     }
 
-    fun put(key: String, bitmap: Bitmap) {
+    fun put(uriString: String, reqWidth: Int, bitmap: Bitmap) {
         try {
-            lruCache.put(key, bitmap)
+            val t = tier(reqWidth)
+            lruCache.put("${uriString}_$t", bitmap)
         } catch (_: Throwable) {}
     }
 
     fun decodeSampledBitmap(context: Context, uriString: String, reqWidth: Int = 360, reqHeight: Int = 360): Bitmap? {
-        val cached = get(uriString)
+        val cached = get(uriString, reqWidth)
         if (cached != null) return cached
 
         try {
@@ -182,28 +206,39 @@ object ImageCacheManager {
                 inJustDecodeBounds = true
             }
 
-            if (uriString.startsWith("content://")) {
-                context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
-                    BitmapFactory.decodeStream(it, null, options)
+            val isContentOrFile = uriString.startsWith("content://") || uriString.startsWith("file://")
+            val cleanPath = if (uriString.startsWith("file://")) uriString.removePrefix("file://") else uriString
+
+            if (isContentOrFile) {
+                val parsedUri = Uri.parse(uriString)
+                val stream = context.contentResolver.openInputStream(parsedUri)
+                if (stream != null) {
+                    stream.use { BitmapFactory.decodeStream(it, null, options) }
+                } else {
+                    BitmapFactory.decodeFile(cleanPath, options)
                 }
             } else {
-                BitmapFactory.decodeFile(uriString, options)
+                BitmapFactory.decodeFile(cleanPath, options)
             }
 
             options.inSampleSize = calculateInSampleSize(options, reqWidth, reqHeight)
             options.inJustDecodeBounds = false
             options.inPreferredConfig = Bitmap.Config.RGB_565
 
-            val bitmap = if (uriString.startsWith("content://")) {
-                context.contentResolver.openInputStream(Uri.parse(uriString))?.use {
-                    BitmapFactory.decodeStream(it, null, options)
+            val bitmap = if (isContentOrFile) {
+                val parsedUri = Uri.parse(uriString)
+                val stream = context.contentResolver.openInputStream(parsedUri)
+                if (stream != null) {
+                    stream.use { BitmapFactory.decodeStream(it, null, options) }
+                } else {
+                    BitmapFactory.decodeFile(cleanPath, options)
                 }
             } else {
-                BitmapFactory.decodeFile(uriString, options)
+                BitmapFactory.decodeFile(cleanPath, options)
             }
 
             if (bitmap != null) {
-                put(uriString, bitmap)
+                put(uriString, reqWidth, bitmap)
             }
             return bitmap
         } catch (_: Throwable) {
@@ -236,18 +271,22 @@ fun FolderCoverImage(
     contentScale: ContentScale = ContentScale.Crop
 ) {
     val context = LocalContext.current
-    var bitmap by remember(artworkUri) {
-        mutableStateOf<ImageBitmap?>(null)
+    val reqPx = size?.let { (it.value * 2.5f).toInt().coerceIn(90, 480) } ?: 180
+
+    val initialCached = remember(artworkUri, reqPx) {
+        artworkUri?.let { ImageCacheManager.get(it, reqPx)?.asImageBitmap() }
+    }
+    var bitmap by remember(artworkUri, reqPx) {
+        mutableStateOf(initialCached)
     }
 
-    LaunchedEffect(artworkUri) {
+    LaunchedEffect(artworkUri, reqPx) {
         if (!artworkUri.isNullOrBlank()) {
-            val cached = ImageCacheManager.get(artworkUri)
+            val cached = ImageCacheManager.get(artworkUri, reqPx)
             if (cached != null) {
                 bitmap = cached.asImageBitmap()
             } else {
                 withContext(Dispatchers.IO) {
-                    val reqPx = size?.let { (it.value * 2.5f).toInt().coerceIn(90, 480) } ?: 180
                     val bmp = ImageCacheManager.decodeSampledBitmap(context, artworkUri, reqWidth = reqPx, reqHeight = reqPx)
                     if (bmp != null) {
                         bitmap = bmp.asImageBitmap()
@@ -315,46 +354,28 @@ fun EqualizerIndicator(
         label = "s3"
     )
 
-    Row(
+    Canvas(
         modifier = modifier
             .width(16.dp)
-            .height(18.dp),
-        horizontalArrangement = Arrangement.spacedBy(2.dp),
-        verticalAlignment = Alignment.Bottom
+            .height(18.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .fillMaxHeight()
-                .graphicsLayer {
-                    scaleY = s1
-                    transformOrigin = TransformOrigin(0.5f, 1f)
-                }
-                .clip(RoundedCornerShape(1.5.dp))
-                .background(barColor)
-        )
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .fillMaxHeight()
-                .graphicsLayer {
-                    scaleY = s2
-                    transformOrigin = TransformOrigin(0.5f, 1f)
-                }
-                .clip(RoundedCornerShape(1.5.dp))
-                .background(barColor)
-        )
-        Box(
-            modifier = Modifier
-                .width(3.dp)
-                .fillMaxHeight()
-                .graphicsLayer {
-                    scaleY = s3
-                    transformOrigin = TransformOrigin(0.5f, 1f)
-                }
-                .clip(RoundedCornerShape(1.5.dp))
-                .background(barColor)
-        )
+        val barWidth = 3.dp.toPx()
+        val spacing = 2.dp.toPx()
+        val cornerRadius = CornerRadius(barWidth / 2f, barWidth / 2f)
+        val maxHeight = size.height
+
+        val heights = listOf(maxHeight * s1, maxHeight * s2, maxHeight * s3)
+        for (i in 0..2) {
+            val barHeight = heights[i].coerceIn(barWidth, maxHeight)
+            val left = i * (barWidth + spacing)
+            val top = maxHeight - barHeight
+            drawRoundRect(
+                color = barColor,
+                topLeft = Offset(left, top),
+                size = Size(barWidth, barHeight),
+                cornerRadius = cornerRadius
+            )
+        }
     }
 }
 
@@ -450,7 +471,7 @@ fun ThemeSwitcherButton(
             onDismissRequest = { expanded = false },
             modifier = Modifier.background(SurfaceElevated)
         ) {
-            ThemeMode.values().forEach { mode ->
+            ThemeMode.entries.forEach { mode ->
                 DropdownMenuItem(
                     text = {
                         Row(

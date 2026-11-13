@@ -11,6 +11,7 @@ import com.minimal.music.data.source.ParsedLyrics
 import com.minimal.music.player.PlaybackManager
 import com.minimal.music.player.PlaybackState
 import com.minimal.music.ui.theme.ThemeMode
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,6 +21,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -106,7 +108,9 @@ class MusicViewModel(application: Application) : AndroidViewModel(application) {
             map[folder.id] = matched
         }
         map
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+    }
+    .flowOn(Dispatchers.Default)
+    .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private val _selectedFolderFilter = MutableStateFlow<AddedFolder?>(null)
     val selectedFolderFilter: StateFlow<AddedFolder?> = _selectedFolderFilter.asStateFlow()

@@ -100,8 +100,12 @@ fun FoldersScreen(
 
     val context = androidx.compose.ui.platform.LocalContext.current
 
-    // Handle system back gesture when navigated into a subfolder
-    BackHandler(enabled = currentDir != null) {
+    // Handle system back gesture only when navigated into a subfolder (not at root)
+    val canNavigateUp = currentDir != null &&
+        commonRoots.none { it.absolutePath == currentDir?.absolutePath } &&
+        currentDir?.parentFile?.canRead() == true
+
+    BackHandler(enabled = canNavigateUp) {
         viewModel.navigateUp()
     }
 
